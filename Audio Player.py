@@ -71,7 +71,10 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.synced_lyrics = []  
         self.last_highlighted_index = -1
         self.bg_image_path = None
-        self.bg_image_tk = None
+        
+        # 🧠 IMAGE CACHE CHANNELS (ফ্রিজিং বন্ধ করার জন্য)
+        self.cached_normal_bg = None
+        self.cached_sidebar_bg = None
         
         # Visualizer Config
         self.num_bars = 75  
@@ -98,8 +101,8 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.load_saved_settings()
         self.sidebar.place_forget()
 
-        # 🔄 INITIAL REFRESH
-        self.after(300, self.refresh_app_background)
+        # 🔄 INITIAL REFRESH & CACHE
+        self.after(300, self.pre_cache_and_render_background)
 
         self.bind("<Configure>", self.on_window_resize)
 
@@ -166,7 +169,6 @@ class UltimateFullAppPlayer(ctk.CTk):
                     self.update_win.update()
                     time.sleep(2)
                     
-                    # 🚀 স্পেস হ্যান্ডেল সহ সেফ রিস্টার্ট লজিক
                     os.execv(sys.executable, ['python', f'"{current_script}"'])
                 else:
                     lbl_status.configure(text="Download Failed! Server busy.")
@@ -178,11 +180,12 @@ class UltimateFullAppPlayer(ctk.CTk):
     def toggle_window_fullscreen(self, event=None):
         self.is_fullscreen = not self.is_fullscreen
         self.attributes('-fullscreen', self.is_fullscreen)
-        self.after(200, self.refresh_app_background)
+        self.after(200, self.pre_cache_and_render_background)
 
     def on_window_resize(self, event):
         if event.widget == self:
-            self.refresh_app_background()
+            # উইন্ডোজ রিসাইজ বা মিনিমাইজ করলে ব্যাকগ্রাউন্ড রি-ক্যাশ হবে
+            self.pre_cache_and_render_background()
 
     def setup_layout(self):
         # ────────────── SLIDING SIDEBAR (LEFT) ──────────────
@@ -242,7 +245,6 @@ class UltimateFullAppPlayer(ctk.CTk):
             wrap="word", height=75, activate_scrollbars=False
         )
         self.txt_lyrics.pack(fill="x", expand=False)
-        self.txt_lyrics.sidebar = None
         self.txt_lyrics.tag_config("center", justify="center")
         self.txt_lyrics.insert("0.0", "Lyrics will flow smoothly right here!", "center")
 
@@ -322,16 +324,24 @@ class UltimateFullAppPlayer(ctk.CTk):
             self.playlist_expanded = True
 
     def toggle_sidebar(self):
+        # 🚀 মেমোরি থেকে ইনস্ট্যান্ট রেন্ডার হবে, নো ইমেজ প্রসেসিং ল্যাগ!
         if self.sidebar_visible:
             self.sidebar.place_forget()
             self.sidebar_visible = False
             self.btn_menu.configure(text="☰ Open Menu", fg_color="#1F1F1F", text_color="white")
+            if self.cached_normal_bg:
+                self.bg_canvas.delete("bg_pic")
+                self.bg_canvas.create_image(0, 0, image=self.cached_normal_bg, anchor="nw", tags="bg_pic")
+                self.bg_canvas.tag_lower("bg_pic")
         else:
             self.sidebar.place(x=0, y=0, relheight=1)
             self.sidebar_visible = True
             self.btn_menu.configure(text="✕ Close Menu", fg_color=self.c["accent"], text_color="black")
+            if self.cached_sidebar_bg:
+                self.bg_canvas.delete("bg_pic")
+                self.bg_canvas.create_image(0, 0, image=self.cached_sidebar_bg, anchor="nw", tags="bg_pic")
+                self.bg_canvas.tag_lower("bg_pic")
             
-        self.refresh_app_background()
         self.sidebar.lift()            
         self.btn_menu.lift()           
 
@@ -367,15 +377,15 @@ class UltimateFullAppPlayer(ctk.CTk):
         if file_path:
             self.bg_image_path = file_path
             self.save_settings() 
-            self.refresh_app_background()
+            self.pre_cache_and_render_background()
 
-    def refresh_app_background(self):
+    # 🧠 নতুন আল্ট্রা-স্মুথ ইমেজ প্রি-ক্যাশিং ফাংশন
+    def pre_cache_and_render_background(self):
         self.update_idletasks()
         cw = self.bg_canvas.winfo_width()
         ch = self.bg_canvas.winfo_height()
         if cw < 200 or ch < 200: return
 
-        self.bg_canvas.delete("bg_pic")
         if self.bg_image_path:
             try:
                 img = Image.open(self.bg_image_path)
@@ -393,22 +403,28 @@ class UltimateFullAppPlayer(ctk.CTk):
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
                 left = (new_width - cw) / 2
                 top = (new_height - ch) / 2
-                img = img.crop((left, top, left + cw, top + ch))
+                cropped_base = img.crop((left, top, left + cw, top + ch)).convert('RGBA')
                 
                 overlay_color = self.hex_to_rgb(self.c["overlay"])
                 
-                if self.sidebar_visible:
-                    overlay_alpha = 220  
-                else:
-                    overlay_alpha = 150  
-                    
-                overlay = Image.new('RGBA', img.size, (*overlay_color, overlay_alpha)) 
-                img = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
+                # ১. নরমাল মোডের জন্য ডার্ক ওভারলে ক্যাশ করুন
+                overlay_normal = Image.new('RGBA', cropped_base.size, (*overlay_color, 150))
+                img_normal = Image.alpha_composite(cropped_base, overlay_normal).convert('RGB')
+                self.cached_normal_bg = ImageTk.PhotoImage(img_normal)
+                
+                # ২. সাইডবার ওপেন মোডের জন্য এক্সট্রা ডার্ক ওভারলে ক্যাশ করুন
+                overlay_sidebar = Image.new('RGBA', cropped_base.size, (*overlay_color, 220))
+                img_sidebar = Image.alpha_composite(cropped_base, overlay_sidebar).convert('RGB')
+                self.cached_sidebar_bg = ImageTk.PhotoImage(img_sidebar)
 
-                self.bg_image_tk = ImageTk.PhotoImage(img)
-                self.bg_canvas.create_image(0, 0, image=self.bg_image_tk, anchor="nw", tags="bg_pic")
+                # কারেন্টলি যে মোড অন আছে সেই ইমেজটি স্ক্রিনে পুশ করুন
+                self.bg_canvas.delete("bg_pic")
+                active_img = self.cached_sidebar_bg if self.sidebar_visible else self.cached_normal_bg
+                self.bg_canvas.create_image(0, 0, image=active_img, anchor="nw", tags="bg_pic")
                 self.bg_canvas.tag_lower("bg_pic")
-            except Exception: pass
+                
+            except Exception:
+                self.bg_canvas.configure(bg=self.c["overlay"])
         else:
             self.bg_canvas.configure(bg=self.c["overlay"])
 
@@ -575,7 +591,7 @@ class UltimateFullAppPlayer(ctk.CTk):
     def change_theme(self, choice):
         self.current_theme_name = choice
         self.c = self.themes[choice]
-        self.refresh_app_background()
+        self.pre_cache_and_render_background() # থিম বদলালে ব্যাকগ্রাউন্ড রি-কালার হবে
         self.sidebar.configure(fg_color=self.c["card_bg"])
         self.controls_bar.configure(fg_color=self.c["card_bg"])
         self.slider_progress.configure(progress_color=self.c["accent"], button_color=self.c["accent"])
