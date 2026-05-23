@@ -24,6 +24,12 @@ from PIL import Image, ImageTk
 
 pygame.mixer.init()
 
+# ────────────── OTA AUTO-UPDATE CONFIGURATION ──────────────
+CURRENT_VERSION = "1.0.0"
+VERSION_URL = "https://raw.githubusercontent.com/Alviff/VibeStream-Update/main/version.txt"
+CODE_URL = "https://raw.githubusercontent.com/Alviff/VibeStream-Update/main/Audio%20Player.py"
+# ──────────────────────────────────────────────────────────
+
 SETTINGS_FILE = "settings.json"
 ctk.set_appearance_mode("Dark")
 
@@ -32,7 +38,7 @@ class UltimateFullAppPlayer(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("VibeStream - Immersive Theater Edition")
+        self.title(f"VibeStream - Immersive Theater Edition (v{CURRENT_VERSION})")
         self.is_fullscreen = True
         self.attributes('-fullscreen', self.is_fullscreen)
         self.bind("<Escape>", self.toggle_window_fullscreen)  
@@ -66,7 +72,6 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.last_highlighted_index = -1
         self.bg_image_path = None
         self.bg_image_tk = None
-        self.blur_image_tk = None # ব্লার/ডার্ক ইমেজের জন্য ভেরিয়েবল
         
         # Visualizer Config
         self.num_bars = 75  
@@ -77,7 +82,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.bg_canvas = ctk.CTkCanvas(self, bg=self.c["overlay"], highlightthickness=0, bd=0)
         self.bg_canvas.place(x=0, y=0, relwidth=1, relheight=1)
 
-        # 🎭 LAYER 2: Layout Setup (Lyrics and Bottom Bar Always Fixed)
+        # 🎭 LAYER 2: Layout Setup
         self.setup_layout()
         
         # ☰ LAYER 3: Floating Hamburger Menu Button
@@ -102,6 +107,73 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.update_avee_visualizer()
         threading.Thread(target=self.lyrics_sync_loop, daemon=True).start()
         threading.Thread(target=self.update_progress_loop, daemon=True).start()
+
+        # 🚀 START BACKGROUND OTA UPDATE CHECK
+        threading.Thread(target=self.check_for_updates, daemon=True).start()
+
+    # 📡 OTA AUTO-UPDATE LOGIC
+    def check_for_updates(self):
+        try:
+            response = requests.get(VERSION_URL, timeout=5)
+            if response.status_code == 200:
+                remote_version = response.text.strip()
+                if remote_version != CURRENT_VERSION:
+                    self.after(1000, lambda: self.show_update_dialog(remote_version))
+        except Exception:
+            pass  
+
+    def show_update_dialog(self, new_version):
+        self.update_win = ctk.CTkToplevel(self)
+        self.update_win.title("Update Available! 🎉")
+        self.update_win.geometry("400x200")
+        self.update_win.resizable(False, False)
+        self.update_win.lift()
+        self.update_win.attributes("-topmost", True)
+        
+        lbl = ctk.CTkLabel(
+            self.update_win, 
+            text=f"A new version ({new_version}) is available!\nDo you want to update VibeStream now?", 
+            font=ctk.CTkFont(size=14, weight="bold")
+        )
+        lbl.pack(pady=30)
+        
+        btn_frame = ctk.CTkFrame(self.update_win, fg_color="transparent")
+        btn_frame.pack(pady=10)
+        
+        btn_yes = ctk.CTkButton(btn_frame, text="Update Now", fg_color=self.c["accent"], text_color="black", font=ctk.CTkFont(weight="bold"), command=self.start_download_update)
+        btn_yes.pack(side="left", padx=10)
+        
+        btn_no = ctk.CTkButton(btn_frame, text="Later", fg_color="#333333", text_color="white", command=self.update_win.destroy)
+        btn_no.pack(side="left", padx=10)
+
+    def start_download_update(self):
+        for widget in self.update_win.winfo_children():
+            widget.destroy()
+            
+        lbl_status = ctk.CTkLabel(self.update_win, text="Downloading updates... Please wait. ⚡", font=ctk.CTkFont(size=14, weight="bold"))
+        lbl_status.pack(pady=50)
+        self.update_win.update()
+        
+        def download_worker():
+            try:
+                code_response = requests.get(CODE_URL, timeout=15)
+                if code_response.status_code == 200:
+                    current_script = sys.argv[0]
+                    with open(current_script, "w", encoding="utf-8") as f:
+                        f.write(code_response.text)
+                    
+                    lbl_status.configure(text="Update Success! Restarting App... 🔄")
+                    self.update_win.update()
+                    time.sleep(2)
+                    
+                    # 🚀 স্পেস হ্যান্ডেল সহ সেফ রিস্টার্ট লজিক
+                    os.execv(sys.executable, ['python', f'"{current_script}"'])
+                else:
+                    lbl_status.configure(text="Download Failed! Server busy.")
+            except Exception as e:
+                lbl_status.configure(text="Error updating file. Try later!")
+                
+        threading.Thread(target=download_worker, daemon=True).start()
 
     def toggle_window_fullscreen(self, event=None):
         self.is_fullscreen = not self.is_fullscreen
@@ -160,7 +232,7 @@ class UltimateFullAppPlayer(ctk.CTk):
 
         self.playlist_box = ctk.CTkScrollableFrame(self.sidebar, corner_radius=8, fg_color="#0A0A0A")
 
-        # ────────────── IMMERSIVE LYRICS CENTER (FIXED PLACEMENT) ──────────────
+        # ────────────── IMMERSIVE LYRICS CENTER ──────────────
         self.center_lyrics_panel = ctk.CTkFrame(self, fg_color="transparent")
         self.center_lyrics_panel.place(relx=0.5, rely=0.73, relwidth=0.65, relheight=0.20, anchor="center")
         
@@ -170,6 +242,7 @@ class UltimateFullAppPlayer(ctk.CTk):
             wrap="word", height=75, activate_scrollbars=False
         )
         self.txt_lyrics.pack(fill="x", expand=False)
+        self.txt_lyrics.sidebar = None
         self.txt_lyrics.tag_config("center", justify="center")
         self.txt_lyrics.insert("0.0", "Lyrics will flow smoothly right here!", "center")
 
@@ -180,7 +253,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         )
         self.btn_manual_lrc.pack(pady=(10, 0))
 
-        # ────────────── BOTTOM CONTROLS FLOATING BAR (FIXED PLACEMENT) ──────────────
+        # ────────────── BOTTOM CONTROLS FLOATING BAR ──────────────
         self.controls_bar = ctk.CTkFrame(self, height=100, corner_radius=20, fg_color=self.c["card_bg"])
         self.controls_bar.place(relx=0.5, rely=0.92, relwidth=0.92, anchor="center")
         self.controls_bar.grid_propagate(False)
@@ -254,14 +327,13 @@ class UltimateFullAppPlayer(ctk.CTk):
             self.sidebar_visible = False
             self.btn_menu.configure(text="☰ Open Menu", fg_color="#1F1F1F", text_color="white")
         else:
-            # মেনু ওপেন হলেও লিরিক্স বক্স ও নিচের কন্ট্রোল বার স্ক্রিনে থাকবে
             self.sidebar.place(x=0, y=0, relheight=1)
             self.sidebar_visible = True
             self.btn_menu.configure(text="✕ Close Menu", fg_color=self.c["accent"], text_color="black")
             
-        self.refresh_app_background() # ব্যাকগ্রাউন্ডে ডার্ক/ব্লার ওভারলে টগল করার জন্য রিফ্রেশ
-        self.sidebar.lift()            # মেনু সবার উপরে থাকবে
-        self.btn_menu.lift()           # বাটন মেনুর উপরে থাকবে
+        self.refresh_app_background()
+        self.sidebar.lift()            
+        self.btn_menu.lift()           
 
     def save_settings(self, folder_path=None):
         existing_settings = {}
@@ -323,14 +395,12 @@ class UltimateFullAppPlayer(ctk.CTk):
                 top = (new_height - ch) / 2
                 img = img.crop((left, top, left + cw, top + ch))
                 
-                # 🌟 থিয়েটার ওভারলে ইফেক্ট লজিক
                 overlay_color = self.hex_to_rgb(self.c["overlay"])
                 
-                # মেনু ওপেন থাকলে পেছনের ব্যাকগ্রাউন্ড আরও ডার্ক ও হালকা আবছা (Blur/Overlay) হবে
                 if self.sidebar_visible:
-                    overlay_alpha = 220  # ওয়ান লেয়ার ডার্কনেস বাড়িয়ে দেওয়া হলো (সিনেমাটিক এফেক্ট)
+                    overlay_alpha = 220  
                 else:
-                    overlay_alpha = 150  # নরমাল মোডে হালকা ওয়ান লেয়ার ডার্কনেস
+                    overlay_alpha = 150  
                     
                 overlay = Image.new('RGBA', img.size, (*overlay_color, overlay_alpha)) 
                 img = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
@@ -346,7 +416,6 @@ class UltimateFullAppPlayer(ctk.CTk):
         hex_color = hex_color.lstrip('#')
         return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
-    # 🔥 DYNAMIC AVEE VISUALIZER ENGINE (FIXED CENTER)
     def update_avee_visualizer(self):
         cw = self.bg_canvas.winfo_width()
         ch = self.bg_canvas.winfo_height()
@@ -355,7 +424,6 @@ class UltimateFullAppPlayer(ctk.CTk):
             self.after(100, self.update_avee_visualizer)
             return
             
-        # ভিজ্যুয়ালাইজারের সেন্টার সবসময় স্ক্রিনের মাঝখানেই থাকবে, মেনু আসলেও এটি সরবে না
         cx = cw / 2
         cy = ch * 0.35
 
@@ -376,7 +444,6 @@ class UltimateFullAppPlayer(ctk.CTk):
             x_end = cx + (self.circle_radius + self.bar_magnitudes[i]) * math.cos(angle)
             y_end = cy + (self.circle_radius + self.bar_magnitudes[i]) * math.sin(angle)
 
-            # মেনু ওপেন থাকলে পেছনের ভিজ্যুয়ালাইজার সার্কেলটাও কিছুটা আবছা বা ওড়না এফেক্ট পাবে
             bar_color = self.c["accent"]
             
             self.bg_canvas.create_line(
@@ -445,32 +512,44 @@ class UltimateFullAppPlayer(ctk.CTk):
         def run_api_call():
             cleaned_name = base_name_no_ext
             cleaned_name = re.sub(r'^\d+[\s.\-_]*', '', cleaned_name)
+            cleaned_name = re.sub(r'\[.*?\]|\(.*?\)', '', cleaned_name)
+            cleaned_name = re.sub(r'[^\w\s\-]', '', cleaned_name)
             cleaned_name = cleaned_name.replace("_", " ").replace("-", " ").strip()
-            url = f"https://lyrist.vercel.app/api/{urllib.parse.quote(cleaned_name)}"
+            
+            encoded_name = urllib.parse.quote(cleaned_name)
+            url = f"https://lyrist.vercel.app/api/{encoded_name}"
+            
             try:
-                response = requests.get(url, timeout=7).json()
-                lyrics_text = response.get("lyrics")
-                self.txt_lyrics.delete("0.0", "end")
-                if lyrics_text:
-                    lines = lyrics_text.split('\n')
-                    self.parse_lrc_content(lines)
+                response = requests.get(url, timeout=8)
+                if response.status_code == 200:
+                    response_json = response.json()
+                    lyrics_text = response_json.get("lyrics")
+                    self.txt_lyrics.delete("0.0", "end")
                     
-                    try:
-                        with open(local_lrc_path, "w", encoding="utf-8") as f:
-                            simulated_time = 0
-                            for line in lines:
-                                if line.strip():
-                                    min_str = f"{simulated_time // 60:02d}"
-                                    sec_str = f"{simulated_time % 60:02d}"
-                                    f.write(f"[{min_str}:{sec_str}.00] {line.strip()}\n")
-                                    simulated_time += 4
-                    except Exception: pass
+                    if lyrics_text:
+                        lines = lyrics_text.split('\n')
+                        self.parse_lrc_content(lines)
+                        
+                        try:
+                            with open(local_lrc_path, "w", encoding="utf-8") as f:
+                                simulated_time = 0
+                                for line in lines:
+                                    if line.strip():
+                                        min_str = f"{simulated_time // 60:02d}"
+                                        sec_str = f"{simulated_time % 60:02d}"
+                                        f.write(f"[{min_str}:{sec_str}.00] {line.strip()}\n")
+                                        simulated_time += 4
+                        except Exception: pass
+                    else:
+                        self.txt_lyrics.insert("0.0", "Lyrics not found for this track.", "center")
+                        self.after(10000, self.hide_lyrics_notice) 
                 else:
-                    self.txt_lyrics.insert("0.0", "Lyrics not found.", "center")
-                    self.after(10000, self.hide_lyrics_notice) 
+                    self.txt_lyrics.delete("0.0", "end")
+                    self.txt_lyrics.insert("0.0", "Lyrics server busy. Try manual upload!", "center")
+                    self.after(10000, self.hide_lyrics_notice)
             except Exception:
                 self.txt_lyrics.delete("0.0", "end")
-                self.txt_lyrics.insert("0.0", "Network Error. Ready for manual upload!", "center")
+                self.txt_lyrics.insert("0.0", "Lyrics Unavailable. Ready for manual upload! 📇", "center")
                 self.after(10000, self.hide_lyrics_notice) 
 
         threading.Thread(target=run_api_call, daemon=True).start()
