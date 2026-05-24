@@ -25,16 +25,16 @@ from PIL import Image, ImageTk
 pygame.mixer.init()
 
 # ────────────── CONFIG & DATA PATHS ──────────────
-CURRENT_VERSION = "1.0.0 (Beta)"
+CURRENT_VERSION = "1.0.1"  # 🎖️ Updated to latest release version
 VERSION_URL = "https://raw.githubusercontent.com/Alviff/VibeStream-Update/main/version.txt"
-CODE_URL = "https://raw.githubusercontent.com/Alviff/VibeStream-Update/main/Audio%20Player.py"
+# ⚠️ এই লিংকে আপনার নতুন তৈরি করা .exe ফাইলের গিটহাব "Download/Raw" লিংকটি বসাবেন
+CODE_URL = "https://github.com/Alviff/VibeStream-Update/raw/main/VibeStream.exe" 
 
 SETTINGS_FILE = "settings.json"
 USER_DATA_FILE = "user_account.json" 
 
 # 🔑 GENIUS API CONFIGURATION
 GENIUS_CLIENT_ID = "JksUPCAZD8CrFoYKumrsZXhGqgc6H9tFGRyMcw44Ep-krNFTDjy2IEA59LcoC_Lp"
-# ⚠️ নিচের লাইনে আপনার Client Secret কি-টি পেস্ট করুন (Hover to view and copy করে এনে)
 GENIUS_CLIENT_SECRET = "5G_5bJ5jL6Ejfn8IVcMIHUEyvNKeO_UPo3uXj20lq09Qz5FrUxJHU2_1_FbzHpvWrJPxnR88JCmWIYn9C_yqkg" 
 
 ctk.set_appearance_mode("Dark")
@@ -56,7 +56,7 @@ class UltimateFullAppPlayer(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title(f"VibeStream - Immersive Theater Edition ({CURRENT_VERSION})")
+        self.title(f"VibeStream - Immersive Theater Edition (v{CURRENT_VERSION})")
         self.is_fullscreen = True
         self.attributes('-fullscreen', self.is_fullscreen)
         self.bind("<Escape>", self.toggle_window_fullscreen)  
@@ -252,7 +252,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.lbl_bass = ctk.CTkLabel(self.config_box, text="Bass Boost: 1.0x", font=ctk.CTkFont(size=11), text_color=self.c["muted"])
         self.lbl_bass.pack(anchor="w")
 
-        # 🎖️ Credt & Testers Button
+        # 🎖️ Credit & Testers Button
         self.btn_credits = ctk.CTkButton(
             self.sidebar, text="🎖️ Credits & Beta Testers", font=ctk.CTkFont(size=12, weight="bold"),
             fg_color="#252525", text_color="#1ED760", hover_color="#333333", height=32, corner_radius=8,
@@ -383,7 +383,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         
         ctk.CTkLabel(testers_frame, text="🧪 Authorized Beta Testers", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.c["accent"]).pack(pady=(10, 5))
         
-        # 👥 বন্ধুদের আসল নামগুলো এখানে নিচে বসিয়ে দিতে পারেন ভাই!
+        # 👥 বন্ধুদের আসল নামগুলো এখানে নিচে বসিয়ে দিন ভাই!
         testers_list = ["Xtreme Plabon", "Friend_2", "Tester_X", "Your_Squad_Name"]
         
         for tester in testers_list:
@@ -506,7 +506,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.lbl_bass.configure(text=f"Bass Boost: {float(bass_factor):.1f}x")
         self.after(40, self.update_avee_visualizer)
 
-    # 📡 OTA UPDATE LOGIC
+    # 📡 OTA UPDATE SYSTEM WITH WIN-LOCK EXCEPTION HANDLING
     def check_for_updates(self):
         try:
             response = requests.get(VERSION_URL, timeout=5)
@@ -537,29 +537,67 @@ class UltimateFullAppPlayer(ctk.CTk):
         btn_no = ctk.CTkButton(btn_frame, text="Later", fg_color="#333333", text_color="white", command=self.update_win.destroy)
         btn_no.pack(side="left", padx=10)
 
+    # 🛠️ ADVANCED INDEPENDENT BATCH FILE RELOADER WORKER
     def start_download_update(self):
         for widget in self.update_win.winfo_children():
             widget.destroy()
             
-        lbl_status = ctk.CTkLabel(self.update_win, text="Downloading updates... Please wait. ⚡", font=ctk.CTkFont(size=14, weight="bold"))
+        lbl_status = ctk.CTkLabel(self.update_win, text="Downloading VibeStream Update... ⚡", font=ctk.CTkFont(size=14, weight="bold"))
         lbl_status.pack(pady=50)
         self.update_win.update()
         
         def download_worker():
             try:
-                code_response = requests.get(CODE_URL, timeout=15)
-                if code_response.status_code == 200:
-                    current_script = sys.argv[0]
-                    with open(current_script, "w", encoding="utf-8") as f:
-                        f.write(code_response.text)
-                    lbl_status.configure(text="Update Success! Restarting App... 🔄")
-                    self.update_win.update()
-                    time.sleep(2)
-                    os.execv(sys.executable, ['python', f'"{current_script}"'])
+                is_compiled = getattr(sys, 'frozen', False)
+                current_path = os.path.abspath(sys.argv[0])
+                current_dir = os.path.dirname(current_path)
+                
+                response = requests.get(CODE_URL, timeout=30, stream=True)
+                
+                if response.status_code == 200:
+                    if is_compiled:
+                        # ─── বিল্ড করা অ্যাপের (.EXE) জন্য ফিক্সড উইন্ডোজ ওভাররাইট লজিক ───
+                        new_exe_path = os.path.join(current_dir, "VibeStream_New.exe")
+                        
+                        with open(new_exe_path, "wb") as f:
+                            for chunk in response.iter_content(chunk_size=8192):
+                                if chunk: f.write(chunk)
+                                
+                        lbl_status.configure(text="Applying updates... Restarting App! 🔄")
+                        self.update_win.update()
+                        time.sleep(1.5)
+                        
+                        # ফাইল লক ভাঙার জন্য ব্যাকগ্রাউন্ড স্ক্রিপ্ট প্রম্পট তৈরি
+                        bat_path = os.path.join(current_dir, "update_installer.bat")
+                        with open(bat_path, "w") as bat:
+                            bat.write(f'@echo off\n')
+                            bat.write(f'timeout /t 2 /nobreak > nul\n')  
+                            bat.write(f'del "{current_path}"\n')          
+                            bat.write(f'rename "{new_exe_path}" "{os.path.basename(current_path)}"\n') 
+                            bat.write(f'start "" "{current_path}"\n')     
+                            bat.write(f'del "%~f0"\n')                    
+                        
+                        os.startfile(bat_path)
+                        self.destroy()
+                        sys.exit()
+                    else:
+                        # ─── সাধারণ পাইথন স্ক্রিপ্টের (.PY) জন্য লোকাল বাইপাস লজিক ───
+                        temp_script = current_path + ".tmp"
+                        with open(temp_script, "w", encoding="utf-8") as f:
+                            f.write(response.text)
+                            
+                        if os.path.exists(temp_script) and os.path.getsize(temp_script) > 1000:
+                            if os.path.exists(current_path): os.remove(current_path)
+                            os.rename(temp_script, current_path)
+                            lbl_status.configure(text="Update Success! Restarting... 🔄")
+                            self.update_win.update()
+                            time.sleep(2)
+                            os.execv(sys.executable, ['python', f'"{current_path}"'])
                 else:
                     lbl_status.configure(text="Download Failed! Server busy.")
             except Exception as e:
-                lbl_status.configure(text="Error updating file. Try later!")
+                print(f"Update failed log: {e}")
+                lbl_status.configure(text="Update failed! Please download manually.")
                 
         threading.Thread(target=download_worker, daemon=True).start()
 
