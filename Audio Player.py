@@ -1,7 +1,32 @@
 import sys
 import warnings
+import subprocess
 
 warnings.filterwarnings("ignore")
+
+# 📦 AUTO-DEPENDENCY INSTALLER (ইউজারের পিসিতে না থাকলে নিজে ডাউনলোড করে নেবে)
+def install_missing_libraries():
+    required_libraries = {
+        "cv2": "opencv-python",
+        "numpy": "numpy",
+        "mutagen": "mutagen",
+        "PIL": "pillow",
+        "requests": "requests",
+        "customtkinter": "customtkinter",
+        "pygame": "pygame"
+    }
+    for module_name, pip_name in required_libraries.items():
+        try:
+            __import__(module_name)
+        except ImportError:
+            print(f"Installing missing dependency: {pip_name}...")
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name, "--quiet"])
+            except Exception as e:
+                print(f"Could not install {pip_name} automatically: {e}")
+
+# রান করার সাথে সাথেই চেক এবং ইনস্টল হবে
+install_missing_libraries()
 
 try:
     import audioop
@@ -22,24 +47,29 @@ import pygame
 from mutagen.mp3 import MP3
 from PIL import Image, ImageTk  
 
+# 🎥 Video Export Utilities
+try:
+    import cv2
+    import numpy as np
+    VIDEO_EXPORT_AVAILABLE = True
+except ImportError:
+    VIDEO_EXPORT_AVAILABLE = False
+
 pygame.mixer.init()
 
 # ────────────── CONFIG & DATA PATHS ──────────────
-CURRENT_VERSION = "1.0.1"  # 🎖️ Updated to latest release version
+CURRENT_VERSION = "1.0.1"  
 VERSION_URL = "https://raw.githubusercontent.com/Alviff/VibeStream-Update/main/version.txt"
-# ⚠️ এই লিংকে আপনার নতুন তৈরি করা .exe ফাইলের গিটহাব "Download/Raw" লিংকটি বসাবেন
 CODE_URL = "https://github.com/Alviff/VibeStream-Update/raw/main/VibeStream.exe" 
 
 SETTINGS_FILE = "settings.json"
 USER_DATA_FILE = "user_account.json" 
 
 # 🔑 GENIUS API CONFIGURATION
-GENIUS_CLIENT_ID = "JksUPCAZD8CrFoYKumrsZXhGqgc6H9tFGRyMcw44Ep-krNFTDjy2IEA59LcoC_Lp"
-GENIUS_CLIENT_SECRET = "5G_5bJ5jL6Ejfn8IVcMIHUEyvNKeO_UPo3uXj20lq09Qz5FrUxJHU2_1_FbzHpvWrJPxnR88JCmWIYn9C_yqkg" 
+GENIUS_ACCESS_TOKEN = "5G_5bJ5jL6Ejfn8IVcMIHUEyvNKeO_UPo3uXj20lq09Qz5FrUxJHU2_1_FbzHpvWrJPxnR88JCmWIYn9C_yqkg"
 
 ctk.set_appearance_mode("Dark")
 
-# 🛠️ Support Function for Rounded Rectangle in Canvas
 def _create_rounded_rect(self, x1, y1, x2, y2, radius=10, **kwargs):
     points = [
         x1+radius, y1, x1+radius, y1, x2-radius, y1, x2-radius, y1, x2, y1, x2, y1+radius, x2, y1+radius, 
@@ -85,10 +115,13 @@ class UltimateFullAppPlayer(ctk.CTk):
         
         self.sidebar_visible = False 
         self.playlist_expanded = False 
+        self.is_recording_video = False
+        self.video_frames = []
         
         self.synced_lyrics = []  
         self.last_highlighted_index = -1
         self.bg_image_path = None
+        self.current_lyrics_text = "Lyrics will flow smoothly right here!"
         
         # Image Cache
         self.cached_normal_bg = None
@@ -105,11 +138,9 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.bg_canvas = ctk.CTkCanvas(self, bg=self.c["overlay"], highlightthickness=0, bd=0)
         self.bg_canvas.place(x=0, y=0, relwidth=1, relheight=1)
 
-        # Check Account Auth
-        self.check_auth_and_start()
+        self.check_account_auth()
 
-    # 🔑 LOCAL AUTH SYSTEM LOGIC
-    def check_auth_and_start(self):
+    def check_account_auth(self):
         if not os.path.exists(USER_DATA_FILE):
             self.show_signup_screen()
         else:
@@ -121,14 +152,11 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.auth_frame.grid_propagate(False)
 
         ctk.CTkLabel(self.auth_frame, text="Welcome to VibeStream 🎉\nCreate Local Account", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=20)
-        
         self.ent_username = ctk.CTkEntry(self.auth_frame, width=280, placeholder_text="Enter Username")
         self.ent_username.pack(pady=10)
-        
         self.ent_password = ctk.CTkEntry(self.auth_frame, width=280, placeholder_text="Enter Password", show="*")
         self.ent_password.pack(pady=10)
-
-        self.lbl_auth_error = ctk.CTkLabel(self.auth_frame, text="", text_color="red", font=ctk.CTkFont(size=12))
+        self.lbl_auth_error = ctk.CTkLabel(self.auth_frame, text="", text_color="red")
         self.lbl_auth_error.pack(pady=5)
 
         btn_signup = ctk.CTkButton(self.auth_frame, text="Sign Up", fg_color=self.c["accent"], text_color="black", font=ctk.CTkFont(weight="bold"), command=self.process_signup)
@@ -140,11 +168,8 @@ class UltimateFullAppPlayer(ctk.CTk):
         if not user or not pwd:
             self.lbl_auth_error.configure(text="Fields cannot be empty!")
             return
-        
-        account_data = {"username": user, "password": pwd}
         with open(USER_DATA_FILE, "w") as f:
-            json.dump(account_data, f)
-            
+            json.dump({"username": user, "password": pwd}, f)
         self.auth_frame.destroy()
         self.show_login_screen()
 
@@ -154,14 +179,11 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.auth_frame.grid_propagate(False)
 
         ctk.CTkLabel(self.auth_frame, text="🔒 Login to VibeStream", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=25)
-        
         self.ent_login_user = ctk.CTkEntry(self.auth_frame, width=280, placeholder_text="Username")
         self.ent_login_user.pack(pady=10)
-        
         self.ent_login_pwd = ctk.CTkEntry(self.auth_frame, width=280, placeholder_text="Password", show="*")
         self.ent_login_pwd.pack(pady=10)
-
-        self.lbl_auth_error = ctk.CTkLabel(self.auth_frame, text="", text_color="red", font=ctk.CTkFont(size=12))
+        self.lbl_auth_error = ctk.CTkLabel(self.auth_frame, text="", text_color="red")
         self.lbl_auth_error.pack(pady=5)
 
         btn_login = ctk.CTkButton(self.auth_frame, text="Unlock Player 🔓", fg_color=self.c["accent"], text_color="black", font=ctk.CTkFont(weight="bold"), command=self.process_login)
@@ -170,20 +192,17 @@ class UltimateFullAppPlayer(ctk.CTk):
     def process_login(self):
         user = self.ent_login_user.get().strip()
         pwd = self.ent_login_pwd.get().strip()
-        
         if os.path.exists(USER_DATA_FILE):
             with open(USER_DATA_FILE, "r") as f:
-                saved_data = json.load(f)
-                
-            if saved_data.get("username") == user and saved_data.get("password") == pwd:
+                saved = json.load(f)
+            if saved.get("username") == user and saved.get("password") == pwd:
                 self.auth_frame.destroy()
                 self.initialize_main_player() 
             else:
-                self.lbl_auth_error.configure(text="Incorrect username or password!")
+                self.lbl_auth_error.configure(text="Incorrect credentials!")
         else:
-            self.lbl_auth_error.configure(text="No account found! Please restart app.")
+            self.lbl_auth_error.configure(text="No account found!")
 
-    # 🎵 INITIALIZE MAIN INTERFACE
     def initialize_main_player(self):
         self.setup_layout()
         
@@ -201,7 +220,6 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.after(300, self.pre_cache_and_render_background)
         self.bind("<Configure>", self.on_window_resize)
 
-        # Loops
         self.update_avee_visualizer()
         threading.Thread(target=self.lyrics_sync_loop, daemon=True).start()
         threading.Thread(target=self.update_progress_loop, daemon=True).start()
@@ -211,7 +229,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.sidebar = ctk.CTkFrame(self, width=320, corner_radius=0, fg_color=self.c["card_bg"])
         self.sidebar.grid_propagate(False)
         self.sidebar.grid_columnconfigure(0, weight=1)
-        self.sidebar.grid_rowconfigure(5, weight=1) 
+        self.sidebar.grid_rowconfigure(6, weight=1) 
 
         ctk.CTkLabel(self.sidebar, text="", height=65).grid(row=0, column=0)
 
@@ -227,22 +245,21 @@ class UltimateFullAppPlayer(ctk.CTk):
 
         self.theme_selector = ctk.CTkOptionMenu(
             self.config_box, values=list(self.themes.keys()), fg_color="#1F1F1F", button_color="#2D2D2D",
-            button_hover_color="#444444", dropdown_fg_color="#121212", font=ctk.CTkFont(size=12), command=self.change_theme
+            dropdown_fg_color="#121212", font=ctk.CTkFont(size=12), command=self.change_theme
         )
         self.theme_selector.set(self.current_theme_name)
         self.theme_selector.pack(fill="x", pady=5)
 
         self.visualizer_selector = ctk.CTkOptionMenu(
             self.config_box, values=self.visualizer_templates, fg_color="#1F1F1F", button_color="#2D2D2D",
-            button_hover_color="#444444", dropdown_fg_color="#121212", font=ctk.CTkFont(size=12), command=self.change_visualizer_template
+            dropdown_fg_color="#121212", font=ctk.CTkFont(size=12), command=self.change_visualizer_template
         )
         self.visualizer_selector.set(self.current_visualizer_template)
         self.visualizer_selector.pack(fill="x", pady=5)
 
         self.btn_upload_bg = ctk.CTkButton(
             self.config_box, text="🖼️ Upload Custom Wallpaper", font=ctk.CTkFont(size=12, weight="bold"),
-            height=32, fg_color="#252525", text_color="white", hover_color="#333333",
-            corner_radius=8, command=self.upload_bg_image
+            height=32, fg_color="#252525", text_color="white", corner_radius=8, command=self.upload_bg_image
         )
         self.btn_upload_bg.pack(fill="x", pady=5)
 
@@ -252,42 +269,40 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.lbl_bass = ctk.CTkLabel(self.config_box, text="Bass Boost: 1.0x", font=ctk.CTkFont(size=11), text_color=self.c["muted"])
         self.lbl_bass.pack(anchor="w")
 
-        # 🎖️ Credit & Testers Button
+        # 🎥 VIDEO EXPORT TRIGGER BUTTON
+        self.btn_export_video = ctk.CTkButton(
+            self.sidebar, text="📹 Export Live Video (MP4)", font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#291a03", text_color="#FF9900", hover_color="#422b07", height=34, corner_radius=8,
+            command=self.toggle_video_recording
+        )
+        self.btn_export_video.grid(row=2, column=0, sticky="ew", padx=20, pady=5)
+
+        # 🎖️ CREDIT & TESTERS
         self.btn_credits = ctk.CTkButton(
             self.sidebar, text="🎖️ Credits & Beta Testers", font=ctk.CTkFont(size=12, weight="bold"),
             fg_color="#252525", text_color="#1ED760", hover_color="#333333", height=32, corner_radius=8,
             command=self.show_credits_window
         )
-        self.btn_credits.grid(row=2, column=0, sticky="ew", padx=20, pady=(5, 5))
+        self.btn_credits.grid(row=3, column=0, sticky="ew", padx=20, pady=5)
 
         self.btn_expand_playlist = ctk.CTkButton(
             self.sidebar, text="▼ Expand Playlist Tracks", font=ctk.CTkFont(size=14, weight="bold"),
-            fg_color="#1A1A1A", text_color="white", hover_color="#252525", height=38, corner_radius=8,
-            command=self.toggle_playlist_dropdown
+            fg_color="#1A1A1A", text_color="white", height=38, corner_radius=8, command=self.toggle_playlist_dropdown
         )
-        self.btn_expand_playlist.grid(row=3, column=0, sticky="ew", padx=20, pady=(10, 5))
+        self.btn_expand_playlist.grid(row=4, column=0, sticky="ew", padx=20, pady=(10, 5))
 
         self.playlist_box = ctk.CTkScrollableFrame(self.sidebar, corner_radius=8, fg_color="#0A0A0A")
 
-        # ────────────── IMMERSIVE LYRICS CENTER ──────────────
+        # ────────────── TRANSPARENT UTILITIES PANEL ──────────────
         self.center_lyrics_panel = ctk.CTkFrame(self, fg_color="transparent")
-        self.center_lyrics_panel.place(relx=0.5, rely=0.73, relwidth=0.65, relheight=0.20, anchor="center")
-        
-        self.txt_lyrics = ctk.CTkTextbox(
-            self.center_lyrics_panel, fg_color="transparent", 
-            font=ctk.CTkFont(size=20, weight="bold"), text_color=self.c["muted"], 
-            wrap="word", height=75, activate_scrollbars=False
-        )
-        self.txt_lyrics.pack(fill="x", expand=False)
-        self.txt_lyrics.tag_config("center", justify="center")
-        self.txt_lyrics.insert("0.0", "Lyrics will flow smoothly right here!", "center")
+        self.center_lyrics_panel.place(relx=0.5, rely=0.75, relwidth=0.65, relheight=0.15, anchor="center")
 
         self.btn_manual_lrc = ctk.CTkButton(
             self.center_lyrics_panel, text="📇 Upload Custom .LRC / .TXT File", font=ctk.CTkFont(size=11, weight="bold"),
             width=190, height=28, fg_color="#1A1A1A", text_color=self.c["muted"], hover_color="#333333", corner_radius=6,
             command=self.upload_manual_lrc_file
         )
-        self.btn_manual_lrc.pack(pady=(10, 0))
+        self.btn_manual_lrc.pack(side="bottom", pady=(5, 0))
 
         # ────────────── BOTTOM CONTROLS FLOATING BAR ──────────────
         self.controls_bar = ctk.CTkFrame(self, height=100, corner_radius=20, fg_color=self.c["card_bg"])
@@ -318,25 +333,25 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.buttons_frame = ctk.CTkFrame(self.controls_bar, fg_color="transparent")
         self.buttons_frame.grid(row=1, column=1, pady=(2, 5))
 
-        self.btn_shuffle = ctk.CTkButton(self.buttons_frame, text="🔀", width=35, font=ctk.CTkFont(size=14), fg_color="transparent", text_color=self.c["muted"], command=self.toggle_shuffle)
+        self.btn_shuffle = ctk.CTkButton(self.buttons_frame, text="🔀", width=35, fg_color="transparent", text_color=self.c["muted"], command=self.toggle_shuffle)
         self.btn_shuffle.pack(side="left", padx=5)
 
-        self.btn_prev = ctk.CTkButton(self.buttons_frame, text="⏮", width=35, font=ctk.CTkFont(size=16), fg_color="transparent", text_color="white", command=self.prev_track)
+        self.btn_prev = ctk.CTkButton(self.buttons_frame, text="⏮", width=35, fg_color="transparent", text_color="white", command=self.prev_track)
         self.btn_prev.pack(side="left", padx=5)
 
-        self.btn_play = ctk.CTkButton(self.buttons_frame, text="▶", width=40, height=40, corner_radius=20, font=ctk.CTkFont(size=16), fg_color=self.c["accent"], text_color="black", hover_color="white", command=self.toggle_play)
+        self.btn_play = ctk.CTkButton(self.buttons_frame, text="▶", width=40, height=40, corner_radius=20, fg_color=self.c["accent"], text_color="black", hover_color="white", command=self.toggle_play)
         self.btn_play.pack(side="left", padx=5)
 
-        self.btn_next = ctk.CTkButton(self.buttons_frame, text="⏭", width=35, font=ctk.CTkFont(size=16), fg_color="transparent", text_color="white", command=self.next_track)
+        self.btn_next = ctk.CTkButton(self.buttons_frame, text="⏭", width=35, fg_color="transparent", text_color="white", command=self.next_track)
         self.btn_next.pack(side="left", padx=5)
 
-        self.btn_loop = ctk.CTkButton(self.buttons_frame, text="🔁", width=35, font=ctk.CTkFont(size=14), fg_color="transparent", text_color=self.c["muted"], command=self.toggle_loop)
+        self.btn_loop = ctk.CTkButton(self.buttons_frame, text="🔁", width=35, fg_color="transparent", text_color=self.c["muted"], command=self.toggle_loop)
         self.btn_loop.pack(side="left", padx=5)
 
         # Track Meta Display
         self.meta_frame = ctk.CTkFrame(self.controls_bar, fg_color="transparent")
         self.meta_frame.grid(row=1, column=0, sticky="w", padx=30)
-        self.lbl_track_name = ctk.CTkLabel(self.meta_frame, text="No Song Loaded", font=ctk.CTkFont(size=13, weight="bold"), text_color="white", anchor="w")
+        self.lbl_track_name = ctk.CTkLabel(self.meta_frame, text="No Song Loaded", font=ctk.CTkFont(size=13, weight="bold"), text_color="white")
         self.lbl_track_name.pack(anchor="w")
 
         # Volume Controls
@@ -345,57 +360,40 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.slider_volume = ctk.CTkSlider(self.volume_frame, width=80, from_=0, to=1, fg_color="#3E3E3E", progress_color="white", button_color="white", command=self.set_volume)
         self.slider_volume.set(0.7)
         self.slider_volume.pack(side="right")
-        ctk.CTkLabel(self.volume_frame, text="🔊", font=ctk.CTkFont(size=12), text_color="white").pack(side="right", padx=5)
+        ctk.CTkLabel(self.volume_frame, text="🔊", text_color="white").pack(side="right", padx=5)
 
-    # 🎖️ PRODUCTION CREDITS WINDOW FUNCTION
     def show_credits_window(self):
         credits_win = ctk.CTkToplevel(self)
         credits_win.title("VibeStream - Production Team 🎖️")
-        credits_win.geometry("450x450")
+        credits_win.geometry("450x420")
         credits_win.resizable(False, False)
         credits_win.lift()
         credits_win.attributes("-topmost", True)
         
-        # Heading
-        ctk.CTkLabel(
-            credits_win, text="🌟 VIBESTREAM CREDITS 🌟", 
-            font=ctk.CTkFont(family="Helvetica", size=18, weight="bold"), 
-            text_color=self.c["accent"]
-        ).pack(pady=(20, 15))
+        ctk.CTkLabel(credits_win, text="🌟 VIBESTREAM CREDITS 🌟", font=ctk.CTkFont(size=18, weight="bold"), text_color=self.c["accent"]).pack(pady=(20, 15))
         
-        # Core Developer Section
-        dev_frame = ctk.CTkFrame(credits_win, fg_color="#161616", width=400, height=75, corner_radius=10)
+        dev_frame = ctk.CTkFrame(credits_win, fg_color="#161616", width=400, height=80, corner_radius=10)
         dev_frame.pack(pady=5, padx=20, fill="x")
         dev_frame.pack_propagate(False)
         ctk.CTkLabel(dev_frame, text="💻 Lead Developer & UI Architect", font=ctk.CTkFont(size=11), text_color=self.c["muted"]).pack(pady=(8, 0))
         ctk.CTkLabel(dev_frame, text="MD Adiat Islam (Alvi)", font=ctk.CTkFont(size=16, weight="bold"), text_color="white").pack(pady=(2, 5))
         
-        # 🤖 AI Collaborator Section
         ai_frame = ctk.CTkFrame(credits_win, fg_color="#1a233a", width=400, height=75, corner_radius=10, border_width=1, border_color="#00E5FF")
         ai_frame.pack(pady=5, padx=20, fill="x")
         ai_frame.pack_propagate(False)
         ctk.CTkLabel(ai_frame, text="✨ AI Assistant & Core Engine Optimizer", font=ctk.CTkFont(size=11), text_color="#909090").pack(pady=(8, 0))
         ctk.CTkLabel(ai_frame, text="Gemini AI (Google)", font=ctk.CTkFont(size=15, weight="bold"), text_color="#00E5FF").pack(pady=(2, 5))
         
-        # Beta Testers Section
         testers_frame = ctk.CTkFrame(credits_win, fg_color="#121212", width=400, corner_radius=10)
         testers_frame.pack(pady=10, padx=20, fill="both", expand=True)
+        ctk.CTkLabel(testers_frame, text="🧪 Authorized Beta Tester", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.c["accent"]).pack(pady=(10, 5))
         
-        ctk.CTkLabel(testers_frame, text="🧪 Authorized Beta Testers", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.c["accent"]).pack(pady=(10, 5))
-        
-        # 👥 বন্ধুদের আসল নামগুলো এখানে নিচে বসিয়ে দিন ভাই!
-        testers_list = ["Xtreme Plabon", "Friend_2", "Tester_X", "Your_Squad_Name"]
-        
-        for tester in testers_list:
-            ctk.CTkLabel(testers_frame, text=f"• {tester}", font=ctk.CTkFont(family="Courier", size=13), text_color="#EAEAEA").pack(anchor="w", padx=35, pady=2)
-            
-        # Footer
-        ctk.CTkLabel(credits_win, text="Thank you for making VibeStream amazing! 🤍", font=ctk.CTkFont(size=11, italic=True), text_color=self.c["muted"]).pack(pady=12)
+        ctk.CTkLabel(testers_frame, text="• Xtreme Plabon", font=ctk.CTkFont(family="Courier", size=14, weight="bold"), text_color="#EAEAEA").pack(anchor="center", pady=10)
+        ctk.CTkLabel(credits_win, text="Thank you for making VibeStream amazing! 🤍", font=ctk.CTkFont(size=11, italic=True), text_color=self.c["muted"]).pack(pady=10)
 
     def change_visualizer_template(self, choice):
         self.current_visualizer_template = choice
 
-    # 📊 MULTI-TEMPLATE VISUALIZER ENGINE
     def update_avee_visualizer(self):
         cw = self.bg_canvas.winfo_width()
         ch = self.bg_canvas.winfo_height()
@@ -405,6 +403,7 @@ class UltimateFullAppPlayer(ctk.CTk):
             return
             
         self.bg_canvas.delete("visualizer")
+        self.bg_canvas.delete("live_lyrics") 
         bass_factor = self.slider_bass.get()
 
         for i in range(self.num_bars):
@@ -414,7 +413,16 @@ class UltimateFullAppPlayer(ctk.CTk):
             else:
                 self.bar_magnitudes[i] += (2 - self.bar_magnitudes[i]) * 0.2
 
-        # ─── টেমপ্লেট ১: CIRCULAR AVEE ───
+        # ─── 📝 RENDER FLOATING TRANSPARENT LYRICS ───
+        lyric_y = ch * 0.71
+        self.bg_canvas.create_text(
+            cw / 2, lyric_y, text=self.current_lyrics_text, 
+            font=ctk.CTkFont(family="Helvetica", size=22, weight="bold"), 
+            fill=self.c["accent"] if "Genius" not in self.current_lyrics_text else self.c["muted"], 
+            justify="center", anchor="center", tags="live_lyrics"
+        )
+
+        # ─── טেমপ্লেট ১: CIRCULAR AVEE ───
         if self.current_visualizer_template == "Circular Avee":
             cx, cy = cw / 2, ch * 0.35
             for i in range(self.num_bars):
@@ -425,7 +433,7 @@ class UltimateFullAppPlayer(ctk.CTk):
                 y_end = cy + (self.circle_radius + self.bar_magnitudes[i]) * math.sin(angle)
                 self.bg_canvas.create_line(x_start, y_start, x_end, y_end, fill=self.c["accent"], width=5, capstyle="round", tags="visualizer")
 
-        # ─── টেমপ্লেট ২: BOTTOM WAVES ───
+        # ─── טেমপ্লেট ২: BOTTOM WAVES ───
         elif self.current_visualizer_template == "Bottom Waves":
             bar_width = cw / self.num_bars
             baseline_y = ch * 0.62 
@@ -434,14 +442,12 @@ class UltimateFullAppPlayer(ctk.CTk):
                 height = self.bar_magnitudes[i] * 1.5
                 self.bg_canvas.create_line(x_pos, baseline_y, x_pos, baseline_y - height, fill=self.c["accent"], width=int(bar_width*0.7), capstyle="round", tags="visualizer")
 
-        # ─── টেমপ্লেট ৩: PULSE STAR ───
+        # ─── טেমপ্লেট ৩: PULSE STAR ───
         elif self.current_visualizer_template == "Pulse Star":
             cx, cy = cw / 2, ch * 0.35
             avg_magnitude = sum(self.bar_magnitudes) / self.num_bars
             dynamic_radius = self.circle_radius + (avg_magnitude * 0.8)
-            
             self.bg_canvas.create_oval(cx - dynamic_radius, cy - dynamic_radius, cx + dynamic_radius, cy + dynamic_radius, outline=self.c["accent"], width=8, tags="visualizer")
-            
             for i in range(0, self.num_bars, 2):
                 angle = (i / self.num_bars) * 2 * math.pi
                 x_start = cx + dynamic_radius * math.cos(angle)
@@ -450,17 +456,15 @@ class UltimateFullAppPlayer(ctk.CTk):
                 y_end = cy + (dynamic_radius + self.bar_magnitudes[i]*1.2) * math.sin(angle)
                 self.bg_canvas.create_line(x_start, y_start, x_end, y_end, fill=self.c["accent"], width=4, tags="visualizer")
 
-        # ─── টেমপ্লেট ৪: WHATSAPP MESSAGE VISUALIZER ───
+        # ─── ტেমপ্লেট ৪: WHATSAPP MESSAGE VISUALIZER ───
         elif self.current_visualizer_template == "WhatsApp Message":
             msg_width = cw * 0.45
             msg_height = 85
             cx, cy = cw / 2, ch * 0.38
-            
             x1, y1 = cx - (msg_width / 2), cy - (msg_height / 2)
             x2, y2 = cx + (msg_width / 2), cy + (msg_height / 2)
             
             self.bg_canvas.create_rounded_rect(x1, y1, x2, y2, radius=15, fill="#121D25", outline="#1F2C34", width=1, tags="visualizer")
-            
             play_x, play_y = x1 + 35, cy - 5
             self.bg_canvas.create_oval(play_x - 14, play_y - 14, play_x + 14, play_y + 14, fill="", outline="#8696A0", width=2, tags="visualizer")
             
@@ -472,29 +476,16 @@ class UltimateFullAppPlayer(ctk.CTk):
             
             self.bg_canvas.create_text(x1 + 75, y1 + 18, text="ATTA", font=ctk.CTkFont(family="Helvetica", size=13, weight="bold"), fill="#E9EDEF", anchor="w", tags="visualizer")
             self.bg_canvas.create_text(x2 - 75, y1 + 18, text="03410989787", font=ctk.CTkFont(family="Helvetica", size=11), fill="#8696A0", anchor="e", tags="visualizer")
-            
-            current_time_str = self.lbl_current_time.cget("text")
-            self.bg_canvas.create_text(x1 + 75, y2 - 18, text=current_time_str, font=ctk.CTkFont(family="Helvetica", size=11), fill="#8696A0", anchor="w", tags="visualizer")
+            self.bg_canvas.create_text(x1 + 75, y2 - 18, text=self.lbl_current_time.cget("text"), font=ctk.CTkFont(family="Helvetica", size=11), fill="#8696A0", anchor="w", tags="visualizer")
 
             wave_start_x = x1 + 75
             wave_max_end_x = x2 - 75
-            wave_area_width = wave_max_end_x - wave_start_x
-            
-            bar_width = 3  
-            gap = 2        
-            step = bar_width + gap
-            total_possible_bars = int(wave_area_width / step)
-            wave_cy = cy + 5 
-            
+            step = 5
+            total_possible_bars = int((wave_max_end_x - wave_start_x) / step)
             for i in range(total_possible_bars):
                 x_pos = wave_start_x + (i * step)
-                mag_idx = i % self.num_bars
-                
-                height = max(3, self.bar_magnitudes[mag_idx] * 0.45)
-                y_top = wave_cy - (height / 2)
-                y_bottom = wave_cy + (height / 2)
-                
-                self.bg_canvas.create_line(x_pos, y_top, x_pos, y_bottom, fill=self.c["accent"], width=bar_width, capstyle="round", tags="visualizer")
+                height = max(3, self.bar_magnitudes[i % self.num_bars] * 0.45)
+                self.bg_canvas.create_line(x_pos, cy + 5 - (height / 2), x_pos, cy + 5 + (height / 2), fill=self.c["accent"], width=3, capstyle="round", tags="visualizer")
 
             mic_x, mic_y = x2 - 35, cy
             self.bg_canvas.create_oval(mic_x - 18, mic_y - 18, mic_x + 18, mic_y + 18, fill="#00A884", outline="", tags="visualizer") 
@@ -502,102 +493,149 @@ class UltimateFullAppPlayer(ctk.CTk):
 
         if self.bg_canvas.find_withtag("bg_pic"):
             self.bg_canvas.tag_raise("visualizer", "bg_pic")
+            self.bg_canvas.tag_raise("live_lyrics", "bg_pic")
+
+        # 🎥 Capture frames safely if recording
+        if self.is_recording_video and VIDEO_EXPORT_AVAILABLE:
+            self.capture_canvas_frame()
 
         self.lbl_bass.configure(text=f"Bass Boost: {float(bass_factor):.1f}x")
         self.after(40, self.update_avee_visualizer)
 
-    # 📡 OTA UPDATE SYSTEM WITH WIN-LOCK EXCEPTION HANDLING
+    def toggle_video_recording(self):
+        # টগল করার আগে রান-টাইম মডিউল রিলোড নিশ্চিত করা
+        global VIDEO_EXPORT_AVAILABLE, cv2, np
+        try:
+            import cv2
+            import numpy as np
+            VIDEO_EXPORT_AVAILABLE = True
+        except ImportError:
+            VIDEO_EXPORT_AVAILABLE = False
+
+        if not VIDEO_EXPORT_AVAILABLE:
+            ctk.filedialog.messagebox.showerror("Error", "OpenCV & NumPy are downloading or failed!\nPlease wait a moment and try again.")
+            return
+        if not self.is_playing:
+            ctk.filedialog.messagebox.showwarning("Warning", "Play a song first to record video!")
+            return
+
+        if not self.is_recording_video:
+            self.video_frames = []
+            self.is_recording_video = True
+            self.btn_export_video.configure(text="🛑 Stop & Save Video", fg_color="red", text_color="white")
+        else:
+            self.is_recording_video = False
+            self.btn_export_video.configure(text="⌛ Processing MP4...", fg_color="gray", state="disabled")
+            threading.Thread(target=self.save_recorded_video_file, daemon=True).start()
+
+    def capture_canvas_frame(self):
+        try:
+            self.update_idletasks()
+            x = self.bg_canvas.winfo_rootx()
+            y = self.bg_canvas.winfo_rooty()
+            w = self.bg_canvas.winfo_width()
+            h = self.bg_canvas.winfo_height()
+            
+            from PIL import ImageGrab
+            cap_img = ImageGrab.grab(bbox=(x, y, x + w, y + h))
+            frame_np = cv2.cvtColor(np.array(cap_img), cv2.COLOR_RGB2BGR)
+            self.video_frames.append(frame_np)
+        except Exception:
+            pass
+
+    def save_recorded_video_file(self):
+        if not self.video_frames:
+            self.reset_video_export_btn()
+            return
+        
+        save_path = ctk.filedialog.asksaveasfilename(defaultextension=".mp4", filetypes=[("MP4 Video", "*.mp4")])
+        if save_path:
+            try:
+                height, width, _ = self.video_frames[0].shape
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                video_writer = cv2.VideoWriter(save_path, fourcc, 20.0, (width, height))
+                
+                for frame in self.video_frames:
+                    video_writer.write(frame)
+                video_writer.release()
+                
+                ctk.filedialog.messagebox.showinfo("Success 🎉", f"Video exported successfully!\nSaved at: {save_path}")
+            except Exception as e:
+                ctk.filedialog.messagebox.showerror("Error", f"Failed to compile video: {e}")
+        
+        self.reset_video_export_btn()
+
+    def reset_video_export_btn(self):
+        self.video_frames = []
+        self.btn_export_video.configure(text="📹 Export Live Video (MP4)", fg_color="#291a03", text_color="#FF9900", state="normal")
+
     def check_for_updates(self):
         try:
-            response = requests.get(VERSION_URL, timeout=5)
-            if response.status_code == 200:
-                remote_version = response.text.strip()
-                if remote_version != CURRENT_VERSION:
-                    self.after(1000, lambda: self.show_update_dialog(remote_version))
-        except Exception:
-            pass  
+            res = requests.get(VERSION_URL, timeout=5)
+            if res.status_code == 200 and res.text.strip() != CURRENT_VERSION:
+                self.after(1000, lambda: self.show_update_dialog(res.text.strip()))
+        except Exception: pass  
 
     def show_update_dialog(self, new_version):
         self.update_win = ctk.CTkToplevel(self)
         self.update_win.title("Update Available! 🎉")
         self.update_win.geometry("400x200")
         self.update_win.resizable(False, False)
-        self.update_win.lift()
-        self.update_win.attributes("-topmost", True)
+        self.update_win.lift(); self.update_win.attributes("-topmost", True)
         
         lbl = ctk.CTkLabel(self.update_win, text=f"A new version ({new_version}) is available!\nDo you want to update VibeStream now?", font=ctk.CTkFont(size=14, weight="bold"))
         lbl.pack(pady=30)
         
         btn_frame = ctk.CTkFrame(self.update_win, fg_color="transparent")
         btn_frame.pack(pady=10)
-        
         btn_yes = ctk.CTkButton(btn_frame, text="Update Now", fg_color=self.c["accent"], text_color="black", font=ctk.CTkFont(weight="bold"), command=self.start_download_update)
         btn_yes.pack(side="left", padx=10)
-        
-        btn_no = ctk.CTkButton(btn_frame, text="Later", fg_color="#333333", text_color="white", command=self.update_win.destroy)
+        btn_no = ctk.CTkButton(btn_frame, text="Later", fg_color="#333333", command=self.update_win.destroy)
         btn_no.pack(side="left", padx=10)
 
-    # 🛠️ ADVANCED INDEPENDENT BATCH FILE RELOADER WORKER
     def start_download_update(self):
-        for widget in self.update_win.winfo_children():
-            widget.destroy()
-            
+        for widget in self.update_win.winfo_children(): widget.destroy()
         lbl_status = ctk.CTkLabel(self.update_win, text="Downloading VibeStream Update... ⚡", font=ctk.CTkFont(size=14, weight="bold"))
-        lbl_status.pack(pady=50)
-        self.update_win.update()
+        lbl_status.pack(pady=50); self.update_win.update()
         
         def download_worker():
             try:
                 is_compiled = getattr(sys, 'frozen', False)
                 current_path = os.path.abspath(sys.argv[0])
                 current_dir = os.path.dirname(current_path)
+                res = requests.get(CODE_URL, timeout=30, stream=True)
                 
-                response = requests.get(CODE_URL, timeout=30, stream=True)
-                
-                if response.status_code == 200:
+                if res.status_code == 200:
                     if is_compiled:
-                        # ─── বিল্ড করা অ্যাপের (.EXE) জন্য ফিক্সড উইন্ডোজ ওভাররাইট লজিক ───
                         new_exe_path = os.path.join(current_dir, "VibeStream_New.exe")
-                        
                         with open(new_exe_path, "wb") as f:
-                            for chunk in response.iter_content(chunk_size=8192):
+                            for chunk in res.iter_content(chunk_size=8192):
                                 if chunk: f.write(chunk)
-                                
-                        lbl_status.configure(text="Applying updates... Restarting App! 🔄")
-                        self.update_win.update()
+                        
+                        lbl_status.configure(text="Applying updates... Restarting App! 🔄"); self.update_win.update()
                         time.sleep(1.5)
                         
-                        # ফাইল লক ভাঙার জন্য ব্যাকগ্রাউন্ড স্ক্রিপ্ট প্রম্পট তৈরি
                         bat_path = os.path.join(current_dir, "update_installer.bat")
                         with open(bat_path, "w") as bat:
-                            bat.write(f'@echo off\n')
-                            bat.write(f'timeout /t 2 /nobreak > nul\n')  
+                            bat.write('@echo off\n')
+                            bat.write('timeout /t 2 /nobreak > nul\n')  
                             bat.write(f'del "{current_path}"\n')          
                             bat.write(f'rename "{new_exe_path}" "{os.path.basename(current_path)}"\n') 
                             bat.write(f'start "" "{current_path}"\n')     
-                            bat.write(f'del "%~f0"\n')                    
+                            bat.write('del "%~f0"\n')                    
                         
-                        os.startfile(bat_path)
-                        self.destroy()
-                        sys.exit()
+                        os.startfile(bat_path); self.destroy(); sys.exit()
                     else:
-                        # ─── সাধারণ পাইথন স্ক্রিপ্টের (.PY) জন্য লোকাল বাইপাস লজিক ───
                         temp_script = current_path + ".tmp"
-                        with open(temp_script, "w", encoding="utf-8") as f:
-                            f.write(response.text)
-                            
+                        with open(temp_script, "w", encoding="utf-8") as f: f.write(res.text)
                         if os.path.exists(temp_script) and os.path.getsize(temp_script) > 1000:
                             if os.path.exists(current_path): os.remove(current_path)
                             os.rename(temp_script, current_path)
-                            lbl_status.configure(text="Update Success! Restarting... 🔄")
-                            self.update_win.update()
+                            lbl_status.configure(text="Update Success! Restarting... 🔄"); self.update_win.update()
                             time.sleep(2)
                             os.execv(sys.executable, ['python', f'"{current_path}"'])
-                else:
-                    lbl_status.configure(text="Download Failed! Server busy.")
-            except Exception as e:
-                print(f"Update failed log: {e}")
-                lbl_status.configure(text="Update failed! Please download manually.")
+            except Exception:
+                lbl_status.configure(text="Update failed! File is system locked.")
                 
         threading.Thread(target=download_worker, daemon=True).start()
 
@@ -607,8 +645,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.after(200, self.pre_cache_and_render_background)
 
     def on_window_resize(self, event):
-        if event.widget == self:
-            self.pre_cache_and_render_background()
+        if event.widget == self: self.pre_cache_and_render_background()
 
     def toggle_playlist_dropdown(self):
         if self.playlist_expanded:
@@ -616,63 +653,53 @@ class UltimateFullAppPlayer(ctk.CTk):
             self.btn_expand_playlist.configure(text="▼ Expand Playlist Tracks")
             self.playlist_expanded = False
         else:
-            self.playlist_box.grid(row=5, column=0, sticky="nsew", padx=20, pady=(0, 15))
+            self.playlist_box.grid(row=6, column=0, sticky="nsew", padx=20, pady=(0, 15))
             self.btn_expand_playlist.configure(text="▲ Collapse Playlist Tracks")
             self.playlist_expanded = True
 
     def toggle_sidebar(self):
         if self.sidebar_visible:
-            self.sidebar.place_forget()
-            self.sidebar_visible = False
+            self.sidebar.place_forget(); self.sidebar_visible = False
             self.btn_menu.configure(text="☰ Open Menu", fg_color="#1F1F1F", text_color="white")
             if self.cached_normal_bg:
                 self.bg_canvas.delete("bg_pic")
                 self.bg_canvas.create_image(0, 0, image=self.cached_normal_bg, anchor="nw", tags="bg_pic")
-                self.bg_canvas.tag_lower("bg_pic")
         else:
-            self.sidebar.place(x=0, y=0, relheight=1)
-            self.sidebar_visible = True
+            self.sidebar.place(x=0, y=0, relheight=1); self.sidebar_visible = True
             self.btn_menu.configure(text="✕ Close Menu", fg_color=self.c["accent"], text_color="black")
             if self.cached_sidebar_bg:
                 self.bg_canvas.delete("bg_pic")
                 self.bg_canvas.create_image(0, 0, image=self.cached_sidebar_bg, anchor="nw", tags="bg_pic")
-                self.bg_canvas.tag_lower("bg_pic")
             
-        self.sidebar.lift()            
-        self.btn_menu.lift()           
+        self.sidebar.lift(); self.btn_menu.lift()           
 
     def save_settings(self, folder_path=None):
-        existing_settings = {}
+        existing = {}
         if os.path.exists(SETTINGS_FILE):
             try:
-                with open(SETTINGS_FILE, "r") as f: existing_settings = json.load(f)
+                with open(SETTINGS_FILE, "r") as f: existing = json.load(f)
             except Exception: pass
-            
-        if folder_path: existing_settings["last_folder"] = folder_path
-        if self.bg_image_path: existing_settings["custom_wallpaper"] = self.bg_image_path
-        
+        if folder_path: existing["last_folder"] = folder_path
+        if self.bg_image_path: existing["custom_wallpaper"] = self.bg_image_path
         try:
-            with open(SETTINGS_FILE, "w") as f: json.dump(existing_settings, f)
+            with open(SETTINGS_FILE, "w") as f: json.dump(existing, f)
         except Exception: pass
 
     def load_saved_settings(self):
         if os.path.exists(SETTINGS_FILE):
             try:
                 with open(SETTINGS_FILE, "r") as f:
-                    saved_data = json.load(f)
-                    saved_wp = saved_data.get("custom_wallpaper", "")
-                    if saved_wp and os.path.exists(saved_wp):
-                        self.bg_image_path = saved_wp
-                    folder_path = saved_data.get("last_folder", "")
-                    if folder_path and os.path.exists(folder_path): 
-                        self.load_music_from_path(folder_path)
+                    saved = json.load(f)
+                    if saved.get("custom_wallpaper") and os.path.exists(saved["custom_wallpaper"]):
+                        self.bg_image_path = saved["custom_wallpaper"]
+                    if saved.get("last_folder") and os.path.exists(saved["last_folder"]): 
+                        self.load_music_from_path(saved["last_folder"])
             except Exception: pass
 
     def upload_bg_image(self):
         file_path = ctk.filedialog.askopenfilename(filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.webp")])
         if file_path:
-            self.bg_image_path = file_path
-            self.save_settings() 
+            self.bg_image_path = file_path; self.save_settings() 
             self.pre_cache_and_render_background()
 
     def pre_cache_and_render_background(self):
@@ -684,45 +711,25 @@ class UltimateFullAppPlayer(ctk.CTk):
         if self.bg_image_path:
             try:
                 img = Image.open(self.bg_image_path)
-                original_width, original_height = img.size
-                win_aspect = cw / ch
-                img_aspect = original_width / original_height
-
+                ow, oh = img.size
+                win_aspect, img_aspect = cw / ch, ow / oh
                 if img_aspect > win_aspect:
-                    new_height = ch
-                    new_width = int(new_height * img_aspect)
+                    nh = ch; nw = int(nh * img_aspect)
                 else:
-                    new_width = cw
-                    new_height = int(new_width / img_aspect)
+                    nw = cw; nh = int(nw / img_aspect)
 
-                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                left = (new_width - cw) / 2
-                top = (new_height - ch) / 2
-                cropped_base = img.crop((left, top, left + cw, top + ch)).convert('RGBA')
+                img = img.resize((nw, nh), Image.Resampling.LANCZOS)
+                cropped = img.crop(((nw - cw)/2, (nh - ch)/2, (nw - cw)/2 + cw, (nh - ch)/2 + ch)).convert('RGBA')
+                overlay_color = tuple(int(self.c["overlay"].lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
                 
-                overlay_color = self.hex_to_rgb(self.c["overlay"])
-                
-                overlay_normal = Image.new('RGBA', cropped_base.size, (*overlay_color, 150))
-                img_normal = Image.alpha_composite(cropped_base, overlay_normal).convert('RGB')
-                self.cached_normal_bg = ImageTk.PhotoImage(img_normal)
-                
-                overlay_sidebar = Image.new('RGBA', cropped_base.size, (*overlay_color, 220))
-                img_sidebar = Image.alpha_composite(cropped_base, overlay_sidebar).convert('RGB')
-                self.cached_sidebar_bg = ImageTk.PhotoImage(img_sidebar)
+                self.cached_normal_bg = ImageTk.PhotoImage(Image.alpha_composite(cropped, Image.new('RGBA', cropped.size, (*overlay_color, 150))).convert('RGB'))
+                self.cached_sidebar_bg = ImageTk.PhotoImage(Image.alpha_composite(cropped, Image.new('RGBA', cropped.size, (*overlay_color, 220))).convert('RGB'))
 
                 self.bg_canvas.delete("bg_pic")
-                active_img = self.cached_sidebar_bg if self.sidebar_visible else self.cached_normal_bg
-                self.bg_canvas.create_image(0, 0, image=active_img, anchor="nw", tags="bg_pic")
+                self.bg_canvas.create_image(0, 0, image=self.cached_sidebar_bg if self.sidebar_visible else self.cached_normal_bg, anchor="nw", tags="bg_pic")
                 self.bg_canvas.tag_lower("bg_pic")
-                
-            except Exception:
-                self.bg_canvas.configure(bg=self.c["overlay"])
-        else:
-            self.bg_canvas.configure(bg=self.c["overlay"])
-
-    def hex_to_rgb(self, hex_color):
-        hex_color = hex_color.lstrip('#')
-        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+            except Exception: self.bg_canvas.configure(bg=self.c["overlay"])
+        else: self.bg_canvas.configure(bg=self.c["overlay"])
 
     def parse_lrc_content(self, lines):
         self.synced_lyrics = []
@@ -733,8 +740,7 @@ class UltimateFullAppPlayer(ctk.CTk):
             match = re.match(r'\[(\d+):(\d+)[\.:](\d+)\](.*)', line)
             if match:
                 minutes, seconds, _, text = match.groups()
-                timestamp = int(minutes) * 60 + int(seconds)
-                self.synced_lyrics.append((timestamp, text.strip()))
+                self.synced_lyrics.append((int(minutes) * 60 + int(seconds), text.strip()))
             else:
                 self.synced_lyrics.append((simulated_time, line))
                 simulated_time += 4
@@ -744,155 +750,112 @@ class UltimateFullAppPlayer(ctk.CTk):
         if file_path:
             self.last_highlighted_index = -1
             try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    lines = f.readlines()
+                with open(file_path, "r", encoding="utf-8") as f: lines = f.readlines()
                 self.parse_lrc_content(lines)
-                self.txt_lyrics.delete("0.0", "end")
-                self.txt_lyrics.insert("0.0", "Custom Lyrics Loaded Successfully! 🎧", "center")
-            except Exception:
-                self.txt_lyrics.delete("0.0", "end")
-                self.txt_lyrics.insert("0.0", "Error loading custom lyrics file.", "center")
-
-    def hide_lyrics_notice(self):
-        self.txt_lyrics.delete("0.0", "end")
+                self.current_lyrics_text = "Custom Lyrics Loaded Successfully! 🎧"
+            except Exception: self.current_lyrics_text = "Error loading custom lyrics file."
 
     def fetch_lyrics_async(self, track_path):
         self.synced_lyrics = []; self.last_highlighted_index = -1
-        self.txt_lyrics.delete("0.0", "end")
-        self.txt_lyrics.insert("0.0", "Searching Live Lyrics from Genius API... 🔍", "center")
+        self.current_lyrics_text = "Searching Live Lyrics from Genius API... 🔍"
         
         track_dir = os.path.dirname(track_path)
-        track_name = os.path.basename(track_path)
-        base_name_no_ext = os.path.splitext(track_name)[0]
-        
+        base_name_no_ext = os.path.splitext(os.path.basename(track_path))[0]
         local_lrc_path = os.path.join(track_dir, base_name_no_ext + ".lrc")
+        
         if os.path.exists(local_lrc_path):
             try:
-                with open(local_lrc_path, "r", encoding="utf-8") as f:
-                    lines = f.readlines()
+                with open(local_lrc_path, "r", encoding="utf-8") as f: lines = f.readlines()
                 self.parse_lrc_content(lines)
-                self.txt_lyrics.delete("0.0", "end")
-                self.txt_lyrics.insert("0.0", "Offline Synchronized Lyrics Loaded! 💾", "center")
+                self.current_lyrics_text = "Offline Synchronized Lyrics Loaded! 💾"
                 return
             except Exception: pass
 
         def run_api_call():
-            cleaned_name = base_name_no_ext
-            cleaned_name = re.sub(r'^\d+[\s.\-_]*', '', cleaned_name)
-            cleaned_name = re.sub(r'\[.*?\]|\(.*?\)', '', cleaned_name)
-            cleaned_name = re.sub(r'[^\w\s\-]', '', cleaned_name)
-            query_string = cleaned_name.replace("_", " ").replace("-", " ").strip()
-            
-            headers = {"Authorization": f"Bearer {GENIUS_CLIENT_ID}"} if "YOUR_" in GENIUS_CLIENT_SECRET else {}
-            search_url = f"https://api.genius.com/search?q={urllib.parse.quote(query_string)}"
+            cleaned = re.sub(r'^\d+[\s.\-_]*|\[.*?\]|\(.*?\)|[^\w\s\-]', '', base_name_no_ext).replace("_", " ").replace("-", " ").strip()
+            headers = {"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"}
+            search_url = f"https://api.genius.com/search?q={urllib.parse.quote(cleaned)}"
             
             try:
                 res = requests.get(search_url, headers=headers, timeout=8)
-                if res.status_code == 200:
-                    hits = res.json().get("response", {}).get("hits", [])
-                    if hits:
-                        lyrics_res = requests.get(f"https://lyrist.vercel.app/api/{urllib.parse.quote(query_string)}", timeout=8)
-                        if lyrics_res.status_code == 200:
-                            lyrics_text = lyrics_res.json().get("lyrics")
-                            self.txt_lyrics.delete("0.0", "end")
-                            
-                            if lyrics_text:
-                                lines = lyrics_text.split('\n')
-                                self.parse_lrc_content(lines)
-                                try:
-                                    with open(local_lrc_path, "w", encoding="utf-8") as f:
-                                        simulated_time = 0
-                                        for line in lines:
-                                            if line.strip():
-                                                f.write(f"[{simulated_time // 60:02d}:{simulated_time % 60:02d}.00] {line.strip()}\n")
-                                                simulated_time += 4
-                                except Exception: pass
-                                return
+                if res.status_code == 200 and res.json().get("response", {}).get("hits"):
+                    lyrics_res = requests.get(f"https://lyrist.vercel.app/api/{urllib.parse.quote(cleaned)}", timeout=8)
+                    if lyrics_res.status_code == 200 and lyrics_res.json().get("lyrics"):
+                        lines = lyrics_res.json().get("lyrics").split('\n')
+                        self.parse_lrc_content(lines)
+                        self.current_lyrics_text = ""
+                        try:
+                            with open(local_lrc_path, "w", encoding="utf-8") as f:
+                                st = 0
+                                for l in lines:
+                                    if l.strip(): f.write(f"[{st // 60:02d}:{st % 60:02d}.00] {l.strip()}\n"); st += 4
+                        except Exception: pass
+                        return
                 
-                alt_res = requests.get(f"https://lyrist.vercel.app/api/{urllib.parse.quote(query_string)}", timeout=8)
+                alt_res = requests.get(f"https://lyrist.vercel.app/api/{urllib.parse.quote(cleaned)}", timeout=8)
                 if alt_res.status_code == 200 and alt_res.json().get("lyrics"):
-                    lines = alt_res.json().get("lyrics").split('\n')
-                    self.parse_lrc_content(lines)
-                    self.txt_lyrics.delete("0.0", "end")
-                else:
-                    self.txt_lyrics.delete("0.0", "end")
-                    self.txt_lyrics.insert("0.0", "Lyrics not found in Genius database.", "center")
-                    self.after(10000, self.hide_lyrics_notice)
-            except Exception:
-                self.txt_lyrics.delete("0.0", "end")
-                self.txt_lyrics.insert("0.0", "Network offline. Ready for manual upload! 📇", "center")
-                self.after(10000, self.hide_lyrics_notice) 
+                    self.parse_lrc_content(alt_res.json().get("lyrics").split('\n'))
+                    self.current_lyrics_text = ""
+                else: self.current_lyrics_text = "Lyrics not found in Genius database."
+            except Exception: self.current_lyrics_text = "Lyrics fetch error. Ready for manual upload! 📇"
 
         threading.Thread(target=run_api_call, daemon=True).start()
 
     def lyrics_sync_loop(self):
         while True:
             if self.is_playing and not self.is_paused and self.synced_lyrics:
-                current_pos = self.current_time_offset
+                cp = self.current_time_offset
                 target_idx = -1
-                for i, (timestamp, _) in enumerate(self.synced_lyrics):
-                    if current_pos >= timestamp: target_idx = i
+                for i, (ts, _) in enumerate(self.synced_lyrics):
+                    if cp >= ts: target_idx = i
                     else: break
-                
                 if target_idx != -1 and target_idx != self.last_highlighted_index:
                     self.last_highlighted_index = target_idx
-                    self.txt_lyrics.delete("0.0", "end")
-                    _, current_text = self.synced_lyrics[target_idx]
-                    self.txt_lyrics.insert("0.0", current_text, "center")
-                    self.txt_lyrics.tag_config("center", justify="center", foreground=self.c["accent"])
+                    _, self.current_lyrics_text = self.synced_lyrics[target_idx]
             time.sleep(0.15)
 
     def change_theme(self, choice):
-        self.current_theme_name = choice
-        self.c = self.themes[choice]
+        self.current_theme_name = choice; self.c = self.themes[choice]
         self.pre_cache_and_render_background()
-        self.sidebar.configure(fg_color=self.c["card_bg"])
-        self.controls_bar.configure(fg_color=self.c["card_bg"])
+        self.sidebar.configure(fg_color=self.c["card_bg"]); self.controls_bar.configure(fg_color=self.c["card_bg"])
         self.slider_progress.configure(progress_color=self.c["accent"], button_color=self.c["accent"])
         self.btn_play.configure(fg_color=self.c["accent"])
         self.slider_bass.configure(progress_color=self.c["accent"], button_color=self.c["accent"])
-        if self.sidebar_visible:
-            self.btn_menu.configure(fg_color=self.c["accent"])
+        if self.sidebar_visible: self.btn_menu.configure(fg_color=self.c["accent"])
         self.btn_manual_lrc.configure(text_color=self.c["muted"])
         self.update_playlist_ui()
 
     def import_folder(self):
-        folder_path = ctk.filedialog.askdirectory()
-        if folder_path:
-            self.load_music_from_path(folder_path)
-            self.save_settings(folder_path)
+        fp = ctk.filedialog.askdirectory()
+        if fp: self.load_music_from_path(fp); self.save_settings(fp)
 
-    def load_music_from_path(self, folder_path):
-        self.playlist = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith(".mp3")]
+    def load_music_from_path(self, fp):
+        self.playlist = [os.path.join(fp, f) for f in os.listdir(fp) if f.endswith(".mp3")]
         self.update_playlist_ui()
 
-    def format_time(self, seconds): return f"{int(seconds // 60)}:{int(seconds % 60):02d}"
+    def format_time(self, sec): return f"{int(sec // 60)}:{int(sec % 60):02d}"
 
     def update_playlist_ui(self):
-        for widget in self.playlist_box.winfo_children(): widget.destroy()
-        for idx, track_path in enumerate(self.playlist):
-            btn = ctk.CTkButton(
-                self.playlist_box, text=f" {idx+1:02d}.  {os.path.basename(track_path)[:26]}...", anchor="w",
+        for w in self.playlist_box.winfo_children(): w.destroy()
+        for idx, track in enumerate(self.playlist):
+            ctk.CTkButton(
+                self.playlist_box, text=f" {idx+1:02d}.  {os.path.basename(track)[:26]}...", anchor="w",
                 fg_color="transparent", text_color="white", hover_color="#1F1F1F",
-                height=38, corner_radius=6, font=ctk.CTkFont(size=12), command=lambda i=idx: self.play_track(i),
-            )
-            btn.pack(fill="x", pady=2)
+                height=38, corner_radius=6, command=lambda i=idx: self.play_track(i)
+            ).pack(fill="x", pady=2)
 
     def play_track(self, index):
         if index >= len(self.playlist) or index < 0: return
-        self.current_index = index
-        track_path = self.playlist[self.current_index]
+        self.current_index = index; track = self.playlist[self.current_index]
         try:
-            audio = MP3(track_path)
-            self.song_length = audio.info.length
+            self.song_length = MP3(track).info.length
             self.current_time_offset = 0; self.start_timestamp = time.time()
             self.slider_progress.configure(to=self.song_length)
             self.lbl_total_time.configure(text=self.format_time(self.song_length))
-            pygame.mixer.music.load(track_path)
-            pygame.mixer.music.play()
+            pygame.mixer.music.load(track); pygame.mixer.music.play()
             self.is_playing = True; self.is_paused = False; self.btn_play.configure(text="⏸")
-            self.lbl_track_name.configure(text=os.path.basename(track_path)[:35])
-            self.fetch_lyrics_async(track_path)
+            self.lbl_track_name.configure(text=os.path.basename(track)[:35])
+            self.fetch_lyrics_async(track)
         except Exception as e: print(f"Error: {e}")
 
     def toggle_play(self):
@@ -912,12 +875,12 @@ class UltimateFullAppPlayer(ctk.CTk):
 
     def slide_progress(self, event):
         if self.is_playing:
-            new_pos = self.slider_progress.get()
-            pygame.mixer.music.play(start=float(new_pos))
-            self.current_time_offset = new_pos; self.start_timestamp = time.time() - self.current_time_offset
+            np = self.slider_progress.get()
+            pygame.mixer.music.play(start=float(np))
+            self.current_time_offset = np; self.start_timestamp = time.time() - self.current_time_offset
             if self.is_paused: pygame.mixer.music.pause()
 
-    def set_volume(self, value): pygame.mixer.music.set_volume(float(value))
+    def set_volume(self, val): pygame.mixer.music.set_volume(float(val))
     def toggle_shuffle(self): self.is_shuffling = not self.is_shuffling; self.btn_shuffle.configure(text_color=self.c["accent"] if self.is_shuffling else self.c["muted"])
     def toggle_loop(self): self.is_looping = not self.is_looping; self.btn_loop.configure(text_color=self.c["accent"] if self.is_looping else self.c["muted"])
 
@@ -925,11 +888,11 @@ class UltimateFullAppPlayer(ctk.CTk):
         while True:
             if self.is_playing and not self.is_paused:
                 if not pygame.mixer.music.get_busy(): self.after(100, self.next_track); time.sleep(1); continue
-                calculated_pos = time.time() - self.start_timestamp
-                if calculated_pos <= self.song_length:
-                    self.current_time_offset = calculated_pos
-                    self.lbl_current_time.configure(text=self.format_time(calculated_pos))
-                    self.slider_progress.set(calculated_pos)
+                calc = time.time() - self.start_timestamp
+                if calc <= self.song_length:
+                    self.current_time_offset = calc
+                    self.lbl_current_time.configure(text=self.format_time(calc))
+                    self.slider_progress.set(calc)
             time.sleep(0.5)
 
 
