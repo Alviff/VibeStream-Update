@@ -368,7 +368,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         dev_frame.pack(pady=5, padx=20, fill="x")
         dev_frame.pack_propagate(False)
         ctk.CTkLabel(dev_frame, text="💻 Lead Developer & UI Architect", font=ctk.CTkFont(size=11), text_color=self.c["muted"]).pack(pady=(8, 0))
-        ctk.CTkLabel(dev_frame, text="Alviff (Atta)", font=ctk.CTkFont(size=16, weight="bold"), text_color="white").pack(pady=(2, 5))
+        ctk.CTkLabel(dev_frame, text="MD Adiat Islam (Alvi)", font=ctk.CTkFont(size=16, weight="bold"), text_color="white").pack(pady=(2, 5))
         
         # 🤖 AI Collaborator Section
         ai_frame = ctk.CTkFrame(credits_win, fg_color="#1a233a", width=400, height=75, corner_radius=10, border_width=1, border_color="#00E5FF")
@@ -384,7 +384,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         ctk.CTkLabel(testers_frame, text="🧪 Authorized Beta Testers", font=ctk.CTkFont(size=12, weight="bold"), text_color=self.c["accent"]).pack(pady=(10, 5))
         
         # 👥 বন্ধুদের আসল নামগুলো এখানে নিচে বসিয়ে দিতে পারেন ভাই!
-        testers_list = ["Friend_1", "Friend_2", "Tester_X", "Your_Squad_Name"]
+        testers_list = ["Xtreme Plabon", "Friend_2", "Tester_X", "Your_Squad_Name"]
         
         for tester in testers_list:
             ctk.CTkLabel(testers_frame, text=f"• {tester}", font=ctk.CTkFont(family="Courier", size=13), text_color="#EAEAEA").pack(anchor="w", padx=35, pady=2)
