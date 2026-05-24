@@ -1,38 +1,35 @@
-# 🎵 VibeStream - Immersive Theater Edition
+# 🎵 VibeStream - Immersive Theater Edition 🚀
 
-VibeStream is a cutting-edge, fully immersive local MP3 music player designed with a premium, sleek UI using CustomTkinter. Featuring dynamic real-time audio visualizers, automatic lyrics synchronization via Genius API, local user authentication, and customizable aesthetic themes, it brings a theater-like music listening experience right to your desktop.
+Welcome to **VibeStream**, a next-generation local music player built with Python, featuring real-time responsive audio visualizers, dynamic theme engines, asynchronous live lyrics fetching, and a built-in video production suite. 
 
----
-
-## 🚀 What's New in v1.0.1 (Latest Update)
-We are excited to roll out **v1.0.1**, focusing on celebrating the team and collaborators behind the project!
-
-* **🎖️ New Interactive Credits Window:** Added a dedicated Production Team portal accessible directly from the sidebar.
-* **💻 Developer & Squad Branding:** Spotlights the lead developer (`Alviff / Atta`) and the elite circle of **Authorized Beta Testers**.
-* **🤖 AI Collaboration:** Proudly honors `Gemini AI (Google)` as the core UI & Engine optimization partner within the credits console.
-* **⚙️ Performance Improvements:** Optimized rendering logic for floating panels and custom pop-ups.
+Turn your music into a cinematic visual experience!
 
 ---
 
-## ✨ Key Features
+## ✨ What's New in Version 1.0.1 (Latest Update)
 
-* **🎭 Immersive Theater UI:** Minimalist, fullscreen design (`Escape` key toggles fullscreen) with smooth card overlays.
-* **📊 Multi-Template Visualizers:** Switch seamlessly between 4 responsive visualizer modes:
-    * *Circular Avee* (Classic audio ring)
-    * *Bottom Waves* (Linear frequencies)
-    * *Pulse Star* (Dynamic beating core)
-    * *WhatsApp Message* (A unique, personalized voice-note simulator style!)
-* **🎙️ Live Synchronized Lyrics:** Fetches lyrics in real-time from the Genius API, parsing offline `.lrc` or `.txt` files automatically if present. Manual upload is also supported!
-* **🎨 Premium Sound Themes:** Instantly shift vibes with preset styling templates like *Spotify Green*, *Cyberpunk Pink*, *Neon Blue*, and *Blood Red*.
-* **🖼️ Custom Wallpaper Engine:** Upload any custom image to serve as a blurred background canvas overlay.
-* **🔒 Local Security Console:** Secure individual profiles via an offline SignUp/Login credential authentication workflow (`user_account.json`).
-* **📡 Smart OTA Updates:** Embedded auto-update engine that cross-references remote versions and triggers downloads seamlessly.
+We've completely overhauled the visualizer experience and made deployment completely seamless for everyone!
+
+* **🎬 Live Video Export System (.mp4):** You can now record your live running visualizer along with active lyrics and export it directly into a shareable High-Definition `.mp4` video file!
+* **✨ Seamless Transparent Lyrics Overlay:** Replaced the legacy solid-color layout with a fully native, floating transparent lyrics system. Lyrics now blend perfectly over your custom backgrounds.
+* **📦 Auto-Dependency Installer:** No more manual setup! If your friends or users don't have libraries like `opencv-python` or `numpy` installed, VibeStream will silently download and configure them automatically on the first boot.
+* **🔄 Background OTA Updater:** Integrated automatic update check. When a new version is pushed to GitHub, the app prompts users and self-updates instantly via a background batch daemon.
 
 ---
 
-## 🛠️ Prerequisites & Installation
+## 🌟 Key Features
 
-Ensure you have Python installed, then set up the required dependencies:
+* **🎛️ 4 Visualizer Templates:** Swap between *Circular Avee*, *Bottom Waves*, *Pulse Star*, and a unique custom *WhatsApp Message* audio visualizer.
+* **🎤 Dual-Source Synced Lyrics:** Asynchronously pulls synchronized lyrics directly from the **Genius API**, or reads local `.lrc` / `.txt` files on demand.
+* **🎨 Dynamic Theme Engine:** Switch styles instantly—choose from Spotify Green, Cyberpunk Pink, Neon Blue, or Blood Red.
+* **🖼️ Custom Wallpapers:** Upload any background image (`.png`, `.jpg`, `.webp`) and the app will natively crop, blur, and overlay it perfectly to match your display size.
+* **⚡ Smart Audio Engine:** Powered by `pygame.mixer` with built-in adjustable bass boosting logic and full control timeline seeking.
 
-```bash
-pip install customtkinter pygame mutagen pillow requests
+---
+
+## 🛠️ Quick Setup (For Developers)
+
+Since the app has a built-in **Auto-Installer**, you just need to run the script. It will handle the rest!
+
+Download Link :
+https://drive.google.com/drive/folders/11Of3o24lbF_K2X75uuc6GOEUPzJgooeo?usp=drive_link
