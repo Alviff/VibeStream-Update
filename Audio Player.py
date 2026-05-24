@@ -21,7 +21,8 @@ def install_missing_libraries():
         except ImportError:
             print(f"Installing missing dependency: {pip_name}...")
             try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name, "--quiet"])
+                # 🛠️ --no-cache-dir যুক্ত করা হলো যেন SSL/Decryption এরর না আসে
+                subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name, "--quiet", "--no-cache-dir"])
             except Exception as e:
                 print(f"Could not install {pip_name} automatically: {e}")
 
@@ -277,7 +278,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         )
         self.btn_export_video.grid(row=2, column=0, sticky="ew", padx=20, pady=5)
 
-        # 🎖️ CREDIT & TESTERS
+        # ────────────── CREDIT & TESTERS ──────────────
         self.btn_credits = ctk.CTkButton(
             self.sidebar, text="🎖️ Credits & Beta Testers", font=ctk.CTkFont(size=12, weight="bold"),
             fg_color="#252525", text_color="#1ED760", hover_color="#333333", height=32, corner_radius=8,
@@ -456,7 +457,7 @@ class UltimateFullAppPlayer(ctk.CTk):
                 y_end = cy + (dynamic_radius + self.bar_magnitudes[i]*1.2) * math.sin(angle)
                 self.bg_canvas.create_line(x_start, y_start, x_end, y_end, fill=self.c["accent"], width=4, tags="visualizer")
 
-        # ─── ტেমপ্লেট ৪: WHATSAPP MESSAGE VISUALIZER ───
+        # ─── טেমপ্লেট ৪: WHATSAPP MESSAGE VISUALIZER ───
         elif self.current_visualizer_template == "WhatsApp Message":
             msg_width = cw * 0.45
             msg_height = 85
@@ -503,7 +504,6 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.after(40, self.update_avee_visualizer)
 
     def toggle_video_recording(self):
-        # টগল করার আগে রান-টাইম মডিউল রিলোড নিশ্চিত করা
         global VIDEO_EXPORT_AVAILABLE, cv2, np
         try:
             import cv2
@@ -571,7 +571,9 @@ class UltimateFullAppPlayer(ctk.CTk):
 
     def check_for_updates(self):
         try:
-            res = requests.get(VERSION_URL, timeout=5)
+            # 🌐 User-Agent হেডার অ্যাড করা হলো যেন গিটহাব ব্লগ না করে
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+            res = requests.get(VERSION_URL, headers=headers, timeout=5)
             if res.status_code == 200 and res.text.strip() != CURRENT_VERSION:
                 self.after(1000, lambda: self.show_update_dialog(res.text.strip()))
         except Exception: pass  
@@ -603,7 +605,10 @@ class UltimateFullAppPlayer(ctk.CTk):
                 is_compiled = getattr(sys, 'frozen', False)
                 current_path = os.path.abspath(sys.argv[0])
                 current_dir = os.path.dirname(current_path)
-                res = requests.get(CODE_URL, timeout=30, stream=True)
+                
+                # 🌐 এখানেও রিয়েল ব্রাউজার হেডার সেট করা হলো
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                res = requests.get(CODE_URL, headers=headers, timeout=30, stream=True)
                 
                 if res.status_code == 200:
                     if is_compiled:
@@ -634,6 +639,8 @@ class UltimateFullAppPlayer(ctk.CTk):
                             lbl_status.configure(text="Update Success! Restarting... 🔄"); self.update_win.update()
                             time.sleep(2)
                             os.execv(sys.executable, ['python', f'"{current_path}"'])
+                else:
+                    lbl_status.configure(text=f"Download Failed! Server Code: {res.status_code}")
             except Exception:
                 lbl_status.configure(text="Update failed! File is system locked.")
                 
@@ -773,13 +780,18 @@ class UltimateFullAppPlayer(ctk.CTk):
 
         def run_api_call():
             cleaned = re.sub(r'^\d+[\s.\-_]*|\[.*?\]|\(.*?\)|[^\w\s\-]', '', base_name_no_ext).replace("_", " ").replace("-", " ").strip()
-            headers = {"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"}
+            
+            # 🌐 Genius এবং Lyrist দুই এপিআই রিকোয়েস্টেই ব্রাউজার হেডার সেট করা হলো
+            headers = {
+                "Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            }
             search_url = f"https://api.genius.com/search?q={urllib.parse.quote(cleaned)}"
             
             try:
                 res = requests.get(search_url, headers=headers, timeout=8)
                 if res.status_code == 200 and res.json().get("response", {}).get("hits"):
-                    lyrics_res = requests.get(f"https://lyrist.vercel.app/api/{urllib.parse.quote(cleaned)}", timeout=8)
+                    lyrics_res = requests.get(f"https://lyrist.vercel.app/api/{urllib.parse.quote(cleaned)}", headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=8)
                     if lyrics_res.status_code == 200 and lyrics_res.json().get("lyrics"):
                         lines = lyrics_res.json().get("lyrics").split('\n')
                         self.parse_lrc_content(lines)
@@ -792,7 +804,7 @@ class UltimateFullAppPlayer(ctk.CTk):
                         except Exception: pass
                         return
                 
-                alt_res = requests.get(f"https://lyrist.vercel.app/api/{urllib.parse.quote(cleaned)}", timeout=8)
+                alt_res = requests.get(f"https://lyrist.vercel.app/api/{urllib.parse.quote(cleaned)}", headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=8)
                 if alt_res.status_code == 200 and alt_res.json().get("lyrics"):
                     self.parse_lrc_content(alt_res.json().get("lyrics").split('\n'))
                     self.current_lyrics_text = ""
