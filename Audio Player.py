@@ -4,7 +4,7 @@ import subprocess
 
 warnings.filterwarnings("ignore")
 
-# 📦 AUTO-DEPENDENCY INSTALLER (ইউজারের পিসিতে না থাকলে নিজে ডাউনলোড করে নেবে)
+# 📦 1. AUTO-DEPENDENCY INSTALLER
 def install_missing_libraries():
     required_libraries = {
         "cv2": "opencv-python",
@@ -21,12 +21,10 @@ def install_missing_libraries():
         except ImportError:
             print(f"Installing missing dependency: {pip_name}...")
             try:
-                # 🛠️ --no-cache-dir যুক্ত করা হলো যেন SSL/Decryption এরর না আসে
                 subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name, "--quiet", "--no-cache-dir"])
             except Exception as e:
                 print(f"Could not install {pip_name} automatically: {e}")
 
-# রান করার সাথে সাথেই চেক এবং ইনস্টল হবে
 install_missing_libraries()
 
 try:
@@ -48,7 +46,6 @@ import pygame
 from mutagen.mp3 import MP3
 from PIL import Image, ImageTk  
 
-# 🎥 Video Export Utilities
 try:
     import cv2
     import numpy as np
@@ -92,7 +89,6 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.attributes('-fullscreen', self.is_fullscreen)
         self.bind("<Escape>", self.toggle_window_fullscreen)  
         
-        # 🎨 Themes Configuration
         self.themes = {
             "Spotify Green": {"text": "#FFFFFF", "muted": "#A7A7A7", "accent": "#1ED760", "card_bg": "#121212", "overlay": "#0A0A0A"},
             "Cyberpunk Pink": {"text": "#FFFFFF", "muted": "#A0A0A0", "accent": "#FF007F", "card_bg": "#0B0014", "overlay": "#050008"},
@@ -103,7 +99,6 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.c = self.themes[self.current_theme_name]
         self.configure(fg_color=self.c["overlay"])
 
-        # States
         self.playlist = []
         self.current_index = 0
         self.is_playing = False
@@ -122,25 +117,24 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.synced_lyrics = []  
         self.last_highlighted_index = -1
         self.bg_image_path = None
-        self.current_lyrics_text = "Lyrics will flow smoothly right here!"
+        self.current_lyrics_text = "Lyrics will flow smoothly right here! 🎧"
         
-        # Image Cache
         self.cached_normal_bg = None
         self.cached_sidebar_bg = None
         
-        # 📊 VISUALIZER CONFIG
         self.num_bars = 100  
         self.circle_radius = 110  
         self.bar_magnitudes = [0.0] * self.num_bars
         self.visualizer_templates = ["Circular Avee", "Bottom Waves", "Pulse Star", "WhatsApp Message"]
         self.current_visualizer_template = "Circular Avee"
 
-        # Background Canvas
+        # ─── 🖥️ MAIN BG CANVAS ───
         self.bg_canvas = ctk.CTkCanvas(self, bg=self.c["overlay"], highlightthickness=0, bd=0)
         self.bg_canvas.place(x=0, y=0, relwidth=1, relheight=1)
 
         self.check_account_auth()
 
+    # 🔑 2. LOCAL LOGIN/SIGNUP SYSTEM
     def check_account_auth(self):
         if not os.path.exists(USER_DATA_FILE):
             self.show_signup_screen()
@@ -244,6 +238,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         )
         self.btn_import.pack(fill="x", pady=5)
 
+        # 🎨 3. DYNAMIC THEME ENGINE
         self.theme_selector = ctk.CTkOptionMenu(
             self.config_box, values=list(self.themes.keys()), fg_color="#1F1F1F", button_color="#2D2D2D",
             dropdown_fg_color="#121212", font=ctk.CTkFont(size=12), command=self.change_theme
@@ -251,6 +246,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.theme_selector.set(self.current_theme_name)
         self.theme_selector.pack(fill="x", pady=5)
 
+        # 🔀 VISUALIZER TEMPLATE SELECTOR
         self.visualizer_selector = ctk.CTkOptionMenu(
             self.config_box, values=self.visualizer_templates, fg_color="#1F1F1F", button_color="#2D2D2D",
             dropdown_fg_color="#121212", font=ctk.CTkFont(size=12), command=self.change_visualizer_template
@@ -258,19 +254,21 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.visualizer_selector.set(self.current_visualizer_template)
         self.visualizer_selector.pack(fill="x", pady=5)
 
+        # 🖼️ 4. CUSTOM WALLPAPER UPLOADER
         self.btn_upload_bg = ctk.CTkButton(
             self.config_box, text="🖼️ Upload Custom Wallpaper", font=ctk.CTkFont(size=12, weight="bold"),
             height=32, fg_color="#252525", text_color="white", corner_radius=8, command=self.upload_bg_image
         )
         self.btn_upload_bg.pack(fill="x", pady=5)
 
+        # ⚡ 5. ADJUSTABLE BASS BOOST LOGIC
         self.slider_bass = ctk.CTkSlider(self.config_box, from_=0.5, to=2.5, height=12, fg_color="#3E3E3E", progress_color=self.c["accent"], button_color=self.c["accent"])
         self.slider_bass.set(1.0)
         self.slider_bass.pack(fill="x", pady=(15, 2))
         self.lbl_bass = ctk.CTkLabel(self.config_box, text="Bass Boost: 1.0x", font=ctk.CTkFont(size=11), text_color=self.c["muted"])
         self.lbl_bass.pack(anchor="w")
 
-        # 🎥 VIDEO EXPORT TRIGGER BUTTON
+        # 🎬 6. LIVE VIDEO EXPORT SYSTEM (.MP4)
         self.btn_export_video = ctk.CTkButton(
             self.sidebar, text="📹 Export Live Video (MP4)", font=ctk.CTkFont(size=12, weight="bold"),
             fg_color="#291a03", text_color="#FF9900", hover_color="#422b07", height=34, corner_radius=8,
@@ -278,7 +276,6 @@ class UltimateFullAppPlayer(ctk.CTk):
         )
         self.btn_export_video.grid(row=2, column=0, sticky="ew", padx=20, pady=5)
 
-        # ────────────── CREDIT & TESTERS ──────────────
         self.btn_credits = ctk.CTkButton(
             self.sidebar, text="🎖️ Credits & Beta Testers", font=ctk.CTkFont(size=12, weight="bold"),
             fg_color="#252525", text_color="#1ED760", hover_color="#333333", height=32, corner_radius=8,
@@ -286,6 +283,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         )
         self.btn_credits.grid(row=3, column=0, sticky="ew", padx=20, pady=5)
 
+        # 📋 PLAYLIST EXPANDABLE LIST
         self.btn_expand_playlist = ctk.CTkButton(
             self.sidebar, text="▼ Expand Playlist Tracks", font=ctk.CTkFont(size=14, weight="bold"),
             fg_color="#1A1A1A", text_color="white", height=38, corner_radius=8, command=self.toggle_playlist_dropdown
@@ -294,18 +292,18 @@ class UltimateFullAppPlayer(ctk.CTk):
 
         self.playlist_box = ctk.CTkScrollableFrame(self.sidebar, corner_radius=8, fg_color="#0A0A0A")
 
-        # ────────────── TRANSPARENT UTILITIES PANEL ──────────────
+        # ✨ FIXED: লিরিক্স ম্যানুয়াল আপলোড বাটনটির ব্যাকগ্রাউন্ড ফ্রেম পুরোপুরি ট্রান্সপারেন্ট করা হয়েছে
         self.center_lyrics_panel = ctk.CTkFrame(self, fg_color="transparent")
-        self.center_lyrics_panel.place(relx=0.5, rely=0.75, relwidth=0.65, relheight=0.15, anchor="center")
+        self.center_lyrics_panel.place(relx=0.5, rely=0.76, relwidth=0.65, relheight=0.06, anchor="center")
 
         self.btn_manual_lrc = ctk.CTkButton(
             self.center_lyrics_panel, text="📇 Upload Custom .LRC / .TXT File", font=ctk.CTkFont(size=11, weight="bold"),
-            width=190, height=28, fg_color="#1A1A1A", text_color=self.c["muted"], hover_color="#333333", corner_radius=6,
+            width=210, height=30, fg_color="#141414", text_color="#A7A7A7", hover_color="#252525", corner_radius=8,
             command=self.upload_manual_lrc_file
         )
-        self.btn_manual_lrc.pack(side="bottom", pady=(5, 0))
+        self.btn_manual_lrc.pack(side="bottom", pady=2)
 
-        # ────────────── BOTTOM CONTROLS FLOATING BAR ──────────────
+        # ─── 🎛️ CONTROLS BAR LAYER ───
         self.controls_bar = ctk.CTkFrame(self, height=100, corner_radius=20, fg_color=self.c["card_bg"])
         self.controls_bar.place(relx=0.5, rely=0.92, relwidth=0.92, anchor="center")
         self.controls_bar.grid_propagate(False)
@@ -314,7 +312,6 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.controls_bar.grid_columnconfigure(1, weight=2) 
         self.controls_bar.grid_columnconfigure(2, weight=1) 
 
-        # Timeline
         self.timeline_frame = ctk.CTkFrame(self.controls_bar, fg_color="transparent")
         self.timeline_frame.grid(row=0, column=0, columnspan=3, sticky="ew", padx=30, pady=(10, 0))
         self.timeline_frame.grid_columnconfigure(1, weight=1)
@@ -330,7 +327,6 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.lbl_total_time = ctk.CTkLabel(self.timeline_frame, text="0:00", font=ctk.CTkFont(size=11), text_color=self.c["muted"])
         self.lbl_total_time.grid(row=0, column=2, padx=(10, 0))
 
-        # Media Buttons
         self.buttons_frame = ctk.CTkFrame(self.controls_bar, fg_color="transparent")
         self.buttons_frame.grid(row=1, column=1, pady=(2, 5))
 
@@ -349,13 +345,11 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.btn_loop = ctk.CTkButton(self.buttons_frame, text="🔁", width=35, fg_color="transparent", text_color=self.c["muted"], command=self.toggle_loop)
         self.btn_loop.pack(side="left", padx=5)
 
-        # Track Meta Display
         self.meta_frame = ctk.CTkFrame(self.controls_bar, fg_color="transparent")
         self.meta_frame.grid(row=1, column=0, sticky="w", padx=30)
         self.lbl_track_name = ctk.CTkLabel(self.meta_frame, text="No Song Loaded", font=ctk.CTkFont(size=13, weight="bold"), text_color="white")
         self.lbl_track_name.pack(anchor="w")
 
-        # Volume Controls
         self.volume_frame = ctk.CTkFrame(self.controls_bar, fg_color="transparent")
         self.volume_frame.grid(row=1, column=2, padx=30, sticky="e")
         self.slider_volume = ctk.CTkSlider(self.volume_frame, width=80, from_=0, to=1, fg_color="#3E3E3E", progress_color="white", button_color="white", command=self.set_volume)
@@ -395,6 +389,7 @@ class UltimateFullAppPlayer(ctk.CTk):
     def change_visualizer_template(self, choice):
         self.current_visualizer_template = choice
 
+    # 🎛️ 7. AUDIO VISUALIZER ENGINE (4 TEMPLATES)
     def update_avee_visualizer(self):
         cw = self.bg_canvas.winfo_width()
         ch = self.bg_canvas.winfo_height()
@@ -414,16 +409,22 @@ class UltimateFullAppPlayer(ctk.CTk):
             else:
                 self.bar_magnitudes[i] += (2 - self.bar_magnitudes[i]) * 0.2
 
-        # ─── 📝 RENDER FLOATING TRANSPARENT LYRICS ───
-        lyric_y = ch * 0.71
+        # ─── 🎤 ✨ FIXED: SEAMLESS TRANSPARENT LYRICS OVERLAY ───
+        # এখানে কোনো সলিড ব্যাকগ্রাউন্ড বক্স নেই, টেক্সট সরাসরি আপনার কাস্টম ওয়ালপেপারের ওপর ক্রিস্টাল ক্লিয়ার ভেসে উঠবে!
+        lyric_y = ch * 0.69
+        
+        if any(msg in self.current_lyrics_text for msg in ["Searching", "Network offline", "error", "Loaded"]):
+            text_fill_color = self.c["muted"]
+        else:
+            text_fill_color = self.c["text"]
+
         self.bg_canvas.create_text(
             cw / 2, lyric_y, text=self.current_lyrics_text, 
-            font=ctk.CTkFont(family="Helvetica", size=22, weight="bold"), 
-            fill=self.c["accent"] if "Genius" not in self.current_lyrics_text else self.c["muted"], 
-            justify="center", anchor="center", tags="live_lyrics"
+            font=ctk.CTkFont(family="Helvetica", size=23, weight="bold"), 
+            fill=text_fill_color, justify="center", anchor="center", tags="live_lyrics"
         )
 
-        # ─── טেমপ্লেট ১: CIRCULAR AVEE ───
+        # ─── টেমপ্লেট ১: CIRCULAR AVEE ───
         if self.current_visualizer_template == "Circular Avee":
             cx, cy = cw / 2, ch * 0.35
             for i in range(self.num_bars):
@@ -434,16 +435,16 @@ class UltimateFullAppPlayer(ctk.CTk):
                 y_end = cy + (self.circle_radius + self.bar_magnitudes[i]) * math.sin(angle)
                 self.bg_canvas.create_line(x_start, y_start, x_end, y_end, fill=self.c["accent"], width=5, capstyle="round", tags="visualizer")
 
-        # ─── טেমপ্লেট ২: BOTTOM WAVES ───
+        # ─── টেমপ্লেট ২: BOTTOM WAVES ───
         elif self.current_visualizer_template == "Bottom Waves":
             bar_width = cw / self.num_bars
-            baseline_y = ch * 0.62 
+            baseline_y = ch * 0.60 
             for i in range(self.num_bars):
                 x_pos = i * bar_width + (bar_width / 2)
                 height = self.bar_magnitudes[i] * 1.5
                 self.bg_canvas.create_line(x_pos, baseline_y, x_pos, baseline_y - height, fill=self.c["accent"], width=int(bar_width*0.7), capstyle="round", tags="visualizer")
 
-        # ─── טেমপ্লেট ৩: PULSE STAR ───
+        # ─── টেমপ্লেট ৩: PULSE STAR ───
         elif self.current_visualizer_template == "Pulse Star":
             cx, cy = cw / 2, ch * 0.35
             avg_magnitude = sum(self.bar_magnitudes) / self.num_bars
@@ -457,7 +458,7 @@ class UltimateFullAppPlayer(ctk.CTk):
                 y_end = cy + (dynamic_radius + self.bar_magnitudes[i]*1.2) * math.sin(angle)
                 self.bg_canvas.create_line(x_start, y_start, x_end, y_end, fill=self.c["accent"], width=4, tags="visualizer")
 
-        # ─── טেমপ্লেট ৪: WHATSAPP MESSAGE VISUALIZER ───
+        # ─── টেমপ্লেট ৪: WHATSAPP MESSAGE VISUALIZER ───
         elif self.current_visualizer_template == "WhatsApp Message":
             msg_width = cw * 0.45
             msg_height = 85
@@ -496,7 +497,6 @@ class UltimateFullAppPlayer(ctk.CTk):
             self.bg_canvas.tag_raise("visualizer", "bg_pic")
             self.bg_canvas.tag_raise("live_lyrics", "bg_pic")
 
-        # 🎥 Capture frames safely if recording
         if self.is_recording_video and VIDEO_EXPORT_AVAILABLE:
             self.capture_canvas_frame()
 
@@ -504,16 +504,9 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.after(40, self.update_avee_visualizer)
 
     def toggle_video_recording(self):
-        global VIDEO_EXPORT_AVAILABLE, cv2, np
-        try:
-            import cv2
-            import numpy as np
-            VIDEO_EXPORT_AVAILABLE = True
-        except ImportError:
-            VIDEO_EXPORT_AVAILABLE = False
-
+        global VIDEO_EXPORT_AVAILABLE
         if not VIDEO_EXPORT_AVAILABLE:
-            ctk.filedialog.messagebox.showerror("Error", "OpenCV & NumPy are downloading or failed!\nPlease wait a moment and try again.")
+            ctk.filedialog.messagebox.showerror("Error", "OpenCV & NumPy missing!\nPlease wait or check installation.")
             return
         if not self.is_playing:
             ctk.filedialog.messagebox.showwarning("Warning", "Play a song first to record video!")
@@ -569,9 +562,9 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.video_frames = []
         self.btn_export_video.configure(text="📹 Export Live Video (MP4)", fg_color="#291a03", text_color="#FF9900", state="normal")
 
+    # 🔄 8. BACKGROUND OTA UPDATER
     def check_for_updates(self):
         try:
-            # 🌐 User-Agent হেডার অ্যাড করা হলো যেন গিটহাব ব্লগ না করে
             headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
             res = requests.get(VERSION_URL, headers=headers, timeout=5)
             if res.status_code == 200 and res.text.strip() != CURRENT_VERSION:
@@ -585,20 +578,20 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.update_win.resizable(False, False)
         self.update_win.lift(); self.update_win.attributes("-topmost", True)
         
-        lbl = ctk.CTkLabel(self.update_win, text=f"A new version ({new_version}) is available!\nDo you want to update VibeStream now?", font=ctk.CTkFont(size=14, weight="bold"))
-        lbl.pack(pady=30)
+        self.lbl_update_status = ctk.CTkLabel(self.update_win, text=f"A new version ({new_version}) is available!\nDo you want to update VibeStream now?", font=ctk.CTkFont(size=14, weight="bold"))
+        self.lbl_update_status.pack(pady=30)
         
-        btn_frame = ctk.CTkFrame(self.update_win, fg_color="transparent")
-        btn_frame.pack(pady=10)
-        btn_yes = ctk.CTkButton(btn_frame, text="Update Now", fg_color=self.c["accent"], text_color="black", font=ctk.CTkFont(weight="bold"), command=self.start_download_update)
+        self.btn_update_frame = ctk.CTkFrame(self.update_win, fg_color="transparent")
+        self.btn_update_frame.pack(pady=10)
+        btn_yes = ctk.CTkButton(self.btn_update_frame, text="Update Now", fg_color=self.c["accent"], text_color="black", font=ctk.CTkFont(weight="bold"), command=self.start_download_update)
         btn_yes.pack(side="left", padx=10)
-        btn_no = ctk.CTkButton(btn_frame, text="Later", fg_color="#333333", command=self.update_win.destroy)
+        btn_no = ctk.CTkButton(self.btn_update_frame, text="Later", fg_color="#333333", command=self.update_win.destroy)
         btn_no.pack(side="left", padx=10)
 
     def start_download_update(self):
-        for widget in self.update_win.winfo_children(): widget.destroy()
-        lbl_status = ctk.CTkLabel(self.update_win, text="Downloading VibeStream Update... ⚡", font=ctk.CTkFont(size=14, weight="bold"))
-        lbl_status.pack(pady=50); self.update_win.update()
+        self.btn_update_frame.destroy()
+        self.lbl_update_status.configure(text="Downloading VibeStream Update... ⚡")
+        self.update_win.update()
         
         def download_worker():
             try:
@@ -606,7 +599,6 @@ class UltimateFullAppPlayer(ctk.CTk):
                 current_path = os.path.abspath(sys.argv[0])
                 current_dir = os.path.dirname(current_path)
                 
-                # 🌐 এখানেও রিয়েল ব্রাউজার হেডার সেট করা হলো
                 headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
                 res = requests.get(CODE_URL, headers=headers, timeout=30, stream=True)
                 
@@ -617,7 +609,7 @@ class UltimateFullAppPlayer(ctk.CTk):
                             for chunk in res.iter_content(chunk_size=8192):
                                 if chunk: f.write(chunk)
                         
-                        lbl_status.configure(text="Applying updates... Restarting App! 🔄"); self.update_win.update()
+                        self.lbl_update_status.configure(text="Applying updates... Restarting App! 🔄"); self.update_win.update()
                         time.sleep(1.5)
                         
                         bat_path = os.path.join(current_dir, "update_installer.bat")
@@ -636,13 +628,13 @@ class UltimateFullAppPlayer(ctk.CTk):
                         if os.path.exists(temp_script) and os.path.getsize(temp_script) > 1000:
                             if os.path.exists(current_path): os.remove(current_path)
                             os.rename(temp_script, current_path)
-                            lbl_status.configure(text="Update Success! Restarting... 🔄"); self.update_win.update()
+                            self.lbl_update_status.configure(text="Update Success! Restarting... 🔄"); self.update_win.update()
                             time.sleep(2)
                             os.execv(sys.executable, ['python', f'"{current_path}"'])
                 else:
-                    lbl_status.configure(text=f"Download Failed! Server Code: {res.status_code}")
+                    self.lbl_update_status.configure(text="Download Failed! Server busy.")
             except Exception:
-                lbl_status.configure(text="Update failed! File is system locked.")
+                self.lbl_update_status.configure(text="Download Failed! Server busy.")
                 
         threading.Thread(target=download_worker, daemon=True).start()
 
@@ -762,6 +754,7 @@ class UltimateFullAppPlayer(ctk.CTk):
                 self.current_lyrics_text = "Custom Lyrics Loaded Successfully! 🎧"
             except Exception: self.current_lyrics_text = "Error loading custom lyrics file."
 
+    # 🎤 9. DUAL-SOURCE SYNCED LYRICS (Genius API + Local .lrc)
     def fetch_lyrics_async(self, track_path):
         self.synced_lyrics = []; self.last_highlighted_index = -1
         self.current_lyrics_text = "Searching Live Lyrics from Genius API... 🔍"
@@ -781,7 +774,6 @@ class UltimateFullAppPlayer(ctk.CTk):
         def run_api_call():
             cleaned = re.sub(r'^\d+[\s.\-_]*|\[.*?\]|\(.*?\)|[^\w\s\-]', '', base_name_no_ext).replace("_", " ").replace("-", " ").strip()
             
-            # 🌐 Genius এবং Lyrist দুই এপিআই রিকোয়েস্টেই ব্রাউজার হেডার সেট করা হলো
             headers = {
                 "Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}",
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
@@ -808,8 +800,10 @@ class UltimateFullAppPlayer(ctk.CTk):
                 if alt_res.status_code == 200 and alt_res.json().get("lyrics"):
                     self.parse_lrc_content(alt_res.json().get("lyrics").split('\n'))
                     self.current_lyrics_text = ""
-                else: self.current_lyrics_text = "Lyrics not found in Genius database."
-            except Exception: self.current_lyrics_text = "Lyrics fetch error. Ready for manual upload! 📇"
+                else: 
+                    self.current_lyrics_text = "Network offline. Ready for manual upload! 🖨️"
+            except Exception: 
+                self.current_lyrics_text = "Network offline. Ready for manual upload! 🖨️"
 
         threading.Thread(target=run_api_call, daemon=True).start()
 
@@ -834,7 +828,7 @@ class UltimateFullAppPlayer(ctk.CTk):
         self.btn_play.configure(fg_color=self.c["accent"])
         self.slider_bass.configure(progress_color=self.c["accent"], button_color=self.c["accent"])
         if self.sidebar_visible: self.btn_menu.configure(fg_color=self.c["accent"])
-        self.btn_manual_lrc.configure(text_color=self.c["muted"])
+        self.btn_manual_lrc.configure(hover_color="#252525")
         self.update_playlist_ui()
 
     def import_folder(self):
