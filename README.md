@@ -1,35 +1,53 @@
-# 🎵 VibeStream - Immersive Theater Edition 🚀
+Markdown
+# 🎵 VibeStream - Immersive Theater Edition
 
-Welcome to **VibeStream**, a next-generation local music player built with Python, featuring real-time responsive audio visualizers, dynamic theme engines, asynchronous live lyrics fetching, and a built-in video production suite. 
-
-Turn your music into a cinematic visual experience!
-
----
-
-## ✨ What's New in Version 1.0.1 (Latest Update)
-
-We've completely overhauled the visualizer experience and made deployment completely seamless for everyone!
-
-* **🎬 Live Video Export System (.mp4):** You can now record your live running visualizer along with active lyrics and export it directly into a shareable High-Definition `.mp4` video file!
-* **✨ Seamless Transparent Lyrics Overlay:** Replaced the legacy solid-color layout with a fully native, floating transparent lyrics system. Lyrics now blend perfectly over your custom backgrounds.
-* **📦 Auto-Dependency Installer:** No more manual setup! If your friends or users don't have libraries like `opencv-python` or `numpy` installed, VibeStream will silently download and configure them automatically on the first boot.
-* **🔄 Background OTA Updater:** Integrated automatic update check. When a new version is pushed to GitHub, the app prompts users and self-updates instantly via a background batch daemon.
+VibeStream is an advanced, immersive audio player designed with a premium UI and real-time audio visualization. It features a customizable sleek look, smart lyrics sync, profile ecosystem, and even a live video exporting system! Built using `CustomTkinter` and `Pygame`.
 
 ---
 
-## 🌟 Key Features
+## ✨ Features
 
-* **🎛️ 4 Visualizer Templates:** Swap between *Circular Avee*, *Bottom Waves*, *Pulse Star*, and a unique custom *WhatsApp Message* audio visualizer.
-* **🎤 Dual-Source Synced Lyrics:** Asynchronously pulls synchronized lyrics directly from the **Genius API**, or reads local `.lrc` / `.txt` files on demand.
-* **🎨 Dynamic Theme Engine:** Switch styles instantly—choose from Spotify Green, Cyberpunk Pink, Neon Blue, or Blood Red.
-* **🖼️ Custom Wallpapers:** Upload any background image (`.png`, `.jpg`, `.webp`) and the app will natively crop, blur, and overlay it perfectly to match your display size.
-* **⚡ Smart Audio Engine:** Powered by `pygame.mixer` with built-in adjustable bass boosting logic and full control timeline seeking.
+* **Premium Sleek UI:** Fully dark-themed custom user interface with fluid layout transitions.
+* **Dynamic Visualizer Templates:** Choose between multiple modes like *Circular Avee*, *Bottom Waves*, *Pulse Star*, and a unique *WhatsApp Voice Message* theme.
+* **Dual-Source Lyrics Synchronization:** Automatically fetches lyrics online from Genius API or loads local offline `.lrc` files.
+* **Personalized Profile Dashboard:** Create local accounts, customize your display name, bio, and circular avatar image.
+* **Video Exporting (MP4):** Capture your visualizer with audio live and export it into a `.mp4` video format instantly.
+* **Custom Wallpapers:** Upload any background image, and the player will automatically apply a smooth, blurred overlay.
+* **OTA Built-in Updater:** Automatic version checker that updates your application executable directly from GitHub.
 
 ---
 
-## 🛠️ Quick Setup (For Developers)
+## 🛠️ Tech Stack & Dependencies
 
-Since the app has a built-in **Auto-Installer**, you just need to run the script. It will handle the rest!
+The project automatically checks and installs required libraries upon startup. However, you can manually install them using:
 
-Download Link :
-https://drive.google.com/drive/folders/11Of3o24lbF_K2X75uuc6GOEUPzJgooeo?usp=drive_link
+```bash
+pip install pygame customtkinter opencv-python numpy mutagen pillow requests
+GUI Framework: CustomTkinter (Tkinter Extension)
+
+Audio Engine: Pygame.mixer
+
+Image Processing: Pillow (PIL)
+
+Video Encoding: OpenCV & NumPy
+
+Audio Metadata: Mutagen (For handling MP3 track lengths)
+
+🚀 How To Run
+Make sure you have Python 3.10+ installed on your system.
+
+Clone or download this repository.
+
+Open your terminal/command prompt in the project directory and run:
+
+Bash
+python "Audio Player.py"
+👤 Credits & Contributors
+Lead Developer & UI Architect: MD Adiat Islam (Alvi)
+
+Core Engine Optimizer: Gemini AI (Google)
+
+Authorized Beta Tester: Xtreme Plabon
+
+📝 License
+This project is open-source and free to use. Feel free to modify and add your own visuals!
