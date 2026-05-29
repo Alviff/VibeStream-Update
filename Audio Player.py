@@ -75,7 +75,6 @@ def _create_rounded_rect(self, x1, y1, x2, y2, radius=10, **kwargs):
     ]
     return self.create_polygon(points, **kwargs, smooth=True)
 
-# Safe injection
 if not hasattr(ctk.CTkCanvas, "create_rounded_rect"):
     ctk.CTkCanvas.create_rounded_rect = _create_rounded_rect
 
@@ -118,13 +117,14 @@ class VibeStreamImmersivePlayer(ctk.CTk):
         self.profile_menu_open = False
         self.showing_profile_dashboard = False
         
-        # User Data Defaults
+        # User Data
         self.user_profile = {
             "username": "Guest",
             "password": "",
             "display_name": "BrokenMelody",
             "bio": "No bio added yet",
             "pfp_path": "",
+            "banner_path": "",
             "remember_me": False
         }
         
@@ -145,7 +145,7 @@ class VibeStreamImmersivePlayer(ctk.CTk):
         self.load_user_profile_data()
         self.check_account_auth()
 
-    # 🔒 SIGNUP & LOGIN SYSTEM (WITH REMEMBER ME)
+    # 🔒 SIGNUP & LOGIN SYSTEM
     def load_user_profile_data(self):
         if os.path.exists(USER_DATA_FILE):
             try:
@@ -248,6 +248,24 @@ class VibeStreamImmersivePlayer(ctk.CTk):
         except Exception:
             return None
 
+    def update_sidebar_profile_banner(self):
+        if not hasattr(self, 'side_banner_canvas') or not self.side_banner_canvas.winfo_exists():
+            return
+            
+        self.side_banner_canvas.delete("all")
+        bp = self.user_profile.get("banner_path")
+        
+        if bp and os.path.exists(bp):
+            try:
+                img = Image.open(bp)
+                img = img.resize((280, 70), Image.Resampling.LANCZOS)
+                self.side_banner_tk = ImageTk.PhotoImage(img)
+                self.side_banner_canvas.create_image(0, 0, image=self.side_banner_tk, anchor="nw")
+                return
+            except Exception: pass
+            
+        self.side_banner_canvas.configure(bg="#1A1A1A")
+
     def initialize_main_player(self):
         self.setup_layout()
         
@@ -278,25 +296,34 @@ class VibeStreamImmersivePlayer(ctk.CTk):
         self.sidebar.grid_columnconfigure(0, weight=1)
         self.sidebar.grid_rowconfigure(6, weight=1) 
 
-        # 👤 SIDEBAR PROFILE WIDGET
-        self.profile_widget = ctk.CTkFrame(self.sidebar, fg_color="transparent", height=70)
+        # 👤 SIDEBAR PROFILE WIDGET WITH DYNAMIC BANNER BACKGROUND
+        self.profile_widget = ctk.CTkFrame(self.sidebar, fg_color="#1A1A1A", height=70, corner_radius=10)
         self.profile_widget.grid(row=0, column=0, sticky="ew", padx=20, pady=(75, 10))
         self.profile_widget.pack_propagate(False)
         
+        self.side_banner_canvas = ctk.CTkCanvas(self.profile_widget, height=70, highlightthickness=0, bd=0)
+        self.side_banner_canvas.place(x=0, y=0, relwidth=1, relheight=1)
+        self.update_sidebar_profile_banner()
+        
+        content_overlay = ctk.CTkFrame(self.profile_widget, fg_color="transparent")
+        content_overlay.place(x=0, y=0, relwidth=1, relheight=1)
+        
         self.pfp_image = self.generate_circular_pfp(self.user_profile.get("pfp_path"), size=(46, 46))
         self.btn_pfp_trigger = ctk.CTkButton(
-            self.profile_widget, image=self.pfp_image, text="", width=46, height=46,
+            content_overlay, image=self.pfp_image, text="", width=46, height=46,
             fg_color="transparent", hover_color="#222222", command=self.toggle_profile_menu
         )
-        self.btn_pfp_trigger.pack(side="left", padx=(0, 10))
+        self.btn_pfp_trigger.pack(side="left", padx=(10, 10))
         
-        meta_sub = ctk.CTkFrame(self.profile_widget, fg_color="transparent")
+        meta_sub = ctk.CTkFrame(content_overlay, fg_color="transparent")
         meta_sub.pack(side="left", fill="y", pady=8)
         self.lbl_side_name = ctk.CTkLabel(meta_sub, text=self.user_profile.get("display_name"), font=ctk.CTkFont(size=14, weight="bold"), text_color="white", anchor="w")
         self.lbl_side_name.pack(anchor="w")
         
-        self.btn_menu_arrow = ctk.CTkButton(meta_sub, text="Profile Options ▾", font=ctk.CTkFont(size=11), text_color=self.c["muted"], fg_color="transparent", width=80, height=15, hover=False, command=self.toggle_profile_menu)
+        self.btn_menu_arrow = ctk.CTkButton(meta_sub, text="Profile Options ▾", font=ctk.CTkFont(size=11, weight="bold"), text_color="#EAEAEA", fg_color="transparent", width=90, height=20, hover=False, command=self.toggle_profile_menu)
         self.btn_menu_arrow.pack(anchor="w")
+        
+        content_overlay.lift()
 
         # Config Box
         self.config_box = ctk.CTkFrame(self.sidebar, fg_color="transparent")
@@ -423,10 +450,8 @@ class VibeStreamImmersivePlayer(ctk.CTk):
         self.slider_volume.pack(side="right")
         ctk.CTkLabel(self.volume_frame, text="🔊", text_color="white").pack(side="right", padx=5)
 
-        # Floating Dropdown Menu Window For Profile Widget
         self.pop_menu = ctk.CTkFrame(self, width=150, height=130, corner_radius=10, fg_color="#181818", border_width=1, border_color="#282828")
 
-    # 👤 SYSTEM DROPDOWN MENU & THEATER VIEW DASHBOARD
     def toggle_profile_menu(self):
         if self.profile_menu_open:
             self.pop_menu.place_forget()
@@ -434,7 +459,7 @@ class VibeStreamImmersivePlayer(ctk.CTk):
         else:
             for w in self.pop_menu.winfo_children(): w.destroy()
             
-            ctk.CTkButton(self.pop_menu, text="👤 Profile", anchor="w", fg_color="transparent", hover_color="#252525", height=30, command=self.show_theater_profile_dashboard).pack(fill="x", padx=5, pady=2)
+            ctk.CTkButton(self.pop_menu, text="👤 Profile Dashboard", anchor="w", fg_color="transparent", hover_color="#252525", height=30, command=self.show_theater_profile_dashboard).pack(fill="x", padx=5, pady=2)
             ctk.CTkButton(self.pop_menu, text="🎨 Theme Settings", anchor="w", fg_color="transparent", hover_color="#252525", height=30, command=lambda: [self.toggle_profile_menu(), self.toggle_sidebar()]).pack(fill="x", padx=5, pady=2)
             ctk.CTkButton(self.pop_menu, text="🚪 Sign Out", anchor="w", fg_color="transparent", text_color="#FF3333", hover_color="#252525", height=30, command=self.process_sign_out).pack(fill="x", padx=5, pady=2)
             
@@ -449,11 +474,38 @@ class VibeStreamImmersivePlayer(ctk.CTk):
         self.user_profile["remember_me"] = False
         self.save_user_profile_data()
         
-        # Shutdown Main Widgets
         self.sidebar.place_forget()
         self.controls_bar.place_forget()
         if hasattr(self, 'dashboard_frame'): self.dashboard_frame.place_forget()
         self.show_login_screen()
+
+    def render_dashboard_banner(self, canvas, width=1100, height=180):
+        canvas.delete("banner_img")
+        bp = self.user_profile.get("banner_path")
+        
+        if bp and os.path.exists(bp):
+            try:
+                img = Image.open(bp)
+                ow, oh = img.size
+                banner_aspect = width / height
+                img_aspect = ow / oh
+                
+                if img_aspect > banner_aspect:
+                    nh = height
+                    nw = int(height * img_aspect)
+                else:
+                    nw = width
+                    nh = int(width / img_aspect)
+                    
+                img = img.resize((nw, nh), Image.Resampling.LANCZOS)
+                cropped = img.crop(((nw - width)/2, (nh - height)/2, (nw - width)/2 + width, (nh - height)/2 + height))
+                
+                self.banner_tk = ImageTk.PhotoImage(cropped)
+                canvas.create_image(0, 0, image=self.banner_tk, anchor="nw", tags="banner_img")
+                return
+            except Exception: pass
+            
+        canvas.create_rectangle(0, 0, width, height, fill=self.c["accent"], outline="", tags="banner_img")
 
     def show_theater_profile_dashboard(self):
         self.toggle_profile_menu()
@@ -463,20 +515,16 @@ class VibeStreamImmersivePlayer(ctk.CTk):
         self.dashboard_frame = ctk.CTkFrame(self, fg_color="#0D0D0D", corner_radius=20)
         self.dashboard_frame.place(relx=0.5, rely=0.45, relwidth=0.75, relheight=0.68, anchor="center")
         
-        # Back Button
         ctk.CTkButton(self.dashboard_frame, text="✕ Close Dashboard", width=120, height=32, fg_color="#222222", hover_color="#333333", command=self.close_profile_dashboard).place(x=20, y=20)
         
-        # Banner View Look
         banner = ctk.CTkFrame(self.dashboard_frame, height=180, corner_radius=15, fg_color="transparent")
         banner.pack(fill="x", padx=20, pady=(70, 10))
         
-        b_canvas = ctk.CTkCanvas(banner, height=180, highlightthickness=0)
-        b_canvas.pack(fill="both", expand=True)
+        self.b_canvas = ctk.CTkCanvas(banner, height=180, highlightthickness=0, bg="#221100")
+        self.b_canvas.pack(fill="both", expand=True)
         self.update_idletasks()
         
-        accent_color = self.c["accent"]
-        b_canvas.create_rectangle(0, 0, 1500, 180, fill=accent_color, outline="")
-        b_canvas.configure(bg="#221100") 
+        self.render_dashboard_banner(self.b_canvas, width=1500, height=180)
 
         dash_content = ctk.CTkFrame(self.dashboard_frame, fg_color="transparent")
         dash_content.pack(fill="both", expand=True, padx=40, pady=10)
@@ -499,14 +547,13 @@ class VibeStreamImmersivePlayer(ctk.CTk):
         self.bio_box = ctk.CTkFrame(dash_content, width=750, height=100, fg_color="#141414", corner_radius=12)
         self.bio_box.place(x=10, y=185, relwidth=0.95)
         
-        # 🛠️ FIXED BUG HERE: 'italic=True' এর জায়গায় slant="italic" ব্যবহার করা হয়েছে
         self.lbl_dash_bio = ctk.CTkLabel(self.bio_box, text=self.user_profile.get("bio"), font=ctk.CTkFont(size=13, slant="italic"), text_color="white", justify="left", anchor="nw")
         self.lbl_dash_bio.place(x=15, y=15, relwidth=0.9, relheight=0.7)
 
     def trigger_edit_profile_dialog(self):
         edit_win = ctk.CTkToplevel(self)
         edit_win.title("Update Dashboard Metadata 📝")
-        edit_win.geometry("400x320")
+        edit_win.geometry("400x380")
         edit_win.resizable(False, False)
         edit_win.lift(); edit_win.attributes("-topmost", True)
         
@@ -524,7 +571,12 @@ class VibeStreamImmersivePlayer(ctk.CTk):
             fp = ctk.filedialog.askopenfilename(filetypes=[("Images", "*.png;*.jpg;*.jpeg")])
             if fp: self.user_profile["pfp_path"] = fp
 
-        ctk.CTkButton(edit_win, text="🖼️ Upload New Avatar PFP Image", fg_color="#222222", width=280, command=select_pfp_file).pack(pady=10)
+        def select_banner_file():
+            fp = ctk.filedialog.askopenfilename(filetypes=[("Images", "*.png;*.jpg;*.jpeg;*.webp")])
+            if fp: self.user_profile["banner_path"] = fp
+
+        ctk.CTkButton(edit_win, text="🖼️ Upload New Avatar PFP Image", fg_color="#222222", width=280, command=select_pfp_file).pack(pady=6)
+        ctk.CTkButton(edit_win, text="🚩 Upload Custom Profile Banner", fg_color="#222222", width=280, command=select_banner_file).pack(pady=6)
 
         def save_edit_changes():
             self.user_profile["display_name"] = ent_disp.get().strip() or self.user_profile["display_name"]
@@ -535,6 +587,8 @@ class VibeStreamImmersivePlayer(ctk.CTk):
             updated_pfp = self.generate_circular_pfp(self.user_profile.get("pfp_path"), size=(46, 46))
             self.btn_pfp_trigger.configure(image=updated_pfp)
             
+            self.update_sidebar_profile_banner()
+            
             self.lbl_dash_name.configure(text=self.user_profile["display_name"])
             
             if hasattr(self, 'lbl_dash_bio') and self.lbl_dash_bio.winfo_exists():
@@ -542,6 +596,9 @@ class VibeStreamImmersivePlayer(ctk.CTk):
             if hasattr(self, 'lbl_large_pfp') and self.lbl_large_pfp.winfo_exists():
                 large_pfp_updated = self.generate_circular_pfp(self.user_profile.get("pfp_path"), size=(110, 110))
                 self.lbl_large_pfp.configure(image=large_pfp_updated)
+            
+            if hasattr(self, 'b_canvas') and self.b_canvas.winfo_exists():
+                self.render_dashboard_banner(self.b_canvas, width=1500, height=180)
             
             edit_win.destroy()
 
@@ -603,7 +660,6 @@ class VibeStreamImmersivePlayer(ctk.CTk):
             else:
                 self.bar_magnitudes[i] += (2 - self.bar_magnitudes[i]) * 0.2
 
-        # ───🎤 TRANSPARENT LYRICS OVERLAY ───
         if not self.showing_profile_dashboard:
             lyric_y = ch * 0.69
             text_fill_color = self.c["muted"] if any(msg in self.current_lyrics_text for msg in ["Searching", "Network offline", "error"]) else self.c["text"]
@@ -614,7 +670,6 @@ class VibeStreamImmersivePlayer(ctk.CTk):
                 fill=text_fill_color, justify="center", anchor="center", tags="live_lyrics"
             )
 
-        # ─── VISUALIZER TEMPLATES ───
         if not self.showing_profile_dashboard:
             if self.current_visualizer_template == "Circular Avee":
                 cx, cy = cw / 2, ch * 0.35
@@ -740,7 +795,7 @@ class VibeStreamImmersivePlayer(ctk.CTk):
         self.video_frames = []
         self.btn_export_video.configure(text="📹 Export Live Video (MP4)", fg_color="#291a03", text_color="#FF9900", state="normal")
 
-    # 🔄 OTA UPDATER
+    # 🔄 UPGRADED LIVE TERMINAL ESTIMATED TIME (ETA) OTA UPDATER
     def check_for_updates(self):
         try:
             headers = {"User-Agent": "Mozilla/5.0"}
@@ -765,40 +820,101 @@ class VibeStreamImmersivePlayer(ctk.CTk):
         ctk.CTkButton(self.btn_update_frame, text="Later", fg_color="#333333", command=self.update_win.destroy).pack(side="left", padx=10)
 
     def start_download_update(self):
+        # UI-te state updated dekhano
         self.btn_update_frame.destroy()
-        self.lbl_update_status.configure(text="Downloading VibeStream Update... ⚡")
+        self.lbl_update_status.configure(text="Launching Terminal Updater... ⚡")
         self.update_win.update()
         
-        def download_worker():
-            try:
-                is_compiled = getattr(sys, 'frozen', False)
-                current_path = os.path.abspath(sys.argv[0])
-                current_dir = os.path.dirname(current_path)
-                headers = {"User-Agent": "Mozilla/5.0"}
-                res = requests.get(CODE_URL, headers=headers, timeout=30, stream=True)
+        # 🛠️ CURRENT APP ENGINE INFRASTRUCTURE DETECTION
+        is_compiled = getattr(sys, 'frozen', False)
+        current_path = os.path.abspath(sys.argv[0])
+        current_dir = os.path.dirname(current_path)
+        
+        # Embedded Python Inline Script Engine (Real-time live ETA Terminal inside CMD)
+        # requests library automatic system chunk read kore dynamic speed computation and mathematical ETA calculation display korbe terminal windows e
+        updater_code = f"""
+import sys, os, time, subprocess
+try:
+    import requests
+except ImportError:
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'requests', '--quiet'])
+    import requests
+
+print("=========================================================")
+print("          VIBESTREAM LIVE CORE OTA UPDATER ENGINE       ")
+print("=========================================================")
+print("Connecting to secure server repository...")
+
+url = "{CODE_URL}"
+target_path = r"{os.path.join(current_dir, 'VibeStream_New.exe' if is_compiled else os.path.basename(current_path) + '.tmp')}"
+current_app_path = r"{current_path}"
+
+try:
+    headers = {{"User-Agent": "Mozilla/5.0"}}
+    response = requests.get(url, headers=headers, stream=True, timeout=45)
+    total_size = int(response.headers.get('content-length', 0))
+    
+    if response.status_code == 200:
+        print(f"Update Found. Total Size: {{total_size / (1024*1024):.2f}} MB")
+        print("Downloading raw binaries...")
+        
+        downloaded = 0
+        start_time = time.time()
+        
+        with open(target_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=16384):
+                if chunk:
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    
+                    # Mathematical Speed and ETA Calculation Engine
+                    elapsed = time.time() - start_time
+                    speed = downloaded / elapsed if elapsed > 0 else 0
+                    percent = (downloaded / total_size) * 100 if total_size > 0 else 0
+                    
+                    remaining_bytes = total_size - downloaded
+                    eta = remaining_bytes / speed if speed > 0 else 0
+                    
+                    # Clean and Optimized single line string terminal output buffer
+                    sys.stdout.write(
+                        f"\\rProgress: [{{percent:.1f}}%] | "
+                        f"Downloaded: {{downloaded / (1024*1024):.2f}}/{{total_size / (1024*1024):.2f}} MB | "
+                        f"Speed: {{speed / 1024:.1f}} KB/s | "
+                        f"ETA Remaining: {{int(eta)}}s   "
+                    )
+                    sys.stdout.flush()
+                    
+        print("\\n\\nDownload successfully completed! Parsing security tokens...")
+        time.sleep(1)
+        
+        # Compilation Deployment Core Configuration
+        bat_path = os.path.join(r"{current_dir}", "hotfix_patcher.bat")
+        with open(bat_path, 'w') as bat:
+            if {str(is_compiled)}:
+                bat.write(f'@echo off\\ntimeout /t 2 /nobreak > nul\\ndel /f /q "{{current_app_path}}"\\nrename "{{target_path}}" "{os.path.basename(current_path)}"\\nstart "" "{{current_app_path}}"\\ndel "%~f0"\\n')
+            else:
+                bat.write(f'@echo off\\ntimeout /t 1 /nobreak > nul\\ndel /f /q "{{current_app_path}}"\\nrename "{{target_path}}" "{os.path.basename(current_path)}"\\nstart "" python "{{current_app_path}}"\\ndel "%~f0"\\n')
                 
-                if res.status_code == 200:
-                    if is_compiled:
-                        new_exe_path = os.path.join(current_dir, "VibeStream_New.exe")
-                        with open(new_exe_path, "wb") as f:
-                            for chunk in res.iter_content(chunk_size=8192):
-                                if chunk: f.write(chunk)
-                        
-                        bat_path = os.path.join(current_dir, "update_installer.bat")
-                        with open(bat_path, "w") as bat:
-                            bat.write('@echo off\ntimeout /t 2 /nobreak > nul\ndel "' + current_path + '"\nrename "' + new_exe_path + '" "' + os.path.basename(current_path) + '"\nstart "" "' + current_path + '"\ndel "%~f0"\n')
-                        os.startfile(bat_path); self.destroy(); sys.exit()
-                    else:
-                        temp_script = current_path + ".tmp"
-                        with open(temp_script, "w", encoding="utf-8") as f: f.write(res.text)
-                        if os.path.exists(temp_script) and os.path.getsize(temp_script) > 1000:
-                            if os.path.exists(current_path): os.remove(current_path)
-                            os.rename(temp_script, current_path)
-                            time.sleep(1)
-                            os.execv(sys.executable, ['python', f'"{current_path}"'])
-            except Exception: self.lbl_update_status.configure(text="Update Failed! Server offline.")
-                
-        threading.Thread(target=download_worker, daemon=True).start()
+        print("Hot-swapping application binaries... Starting New VibeStream Engine!")
+        os.startfile(bat_path)
+    else:
+        print(f"Server rejection token received. HTTP Status: {{response.status_code}}")
+        input("Press Enter to abort and return to previous version...")
+except Exception as e:
+    print(f"Critical execution fault during transfer: {{e}}")
+    input("Press Enter to safety boot...")
+"""
+        
+        # External runtime orchestration payload compilation to temp dynamic cache file
+        temp_updater_script = os.path.join(current_dir, "vstream_ota_runtime.py")
+        with open(temp_updater_script, "w", encoding="utf-8") as f:
+            f.write(updater_code)
+            
+        # Spawn dedicated new Windows Command Prompt process shell thread architecture
+        subprocess.Popen(f'start cmd /k "{sys.executable}" "{temp_updater_script}"', shell=True)
+        
+        # Terminate current operational GUI process scope securely to release binary hooks
+        self.after(500, lambda: [pygame.mixer.quit(), self.destroy(), sys.exit(0)])
 
     def toggle_window_fullscreen(self, event=None):
         self.is_fullscreen = not self.is_fullscreen
@@ -900,7 +1016,6 @@ class VibeStreamImmersivePlayer(ctk.CTk):
                 self.current_lyrics_text = "Custom Lyrics Loaded Successfully! 🎧"
             except Exception: self.current_lyrics_text = "Error loading custom lyrics."
 
-    # 🎤 DUAL-SOURCE LYRICS FETCH
     def fetch_lyrics_async(self, track_path):
         self.synced_lyrics = []; self.last_highlighted_index = -1
         self.current_lyrics_text = "Searching Live Lyrics from Genius API... 🔍"
